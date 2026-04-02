@@ -1,1 +1,7 @@
 venv
+.env
+cache
+logs
+__pycache__
+domain_constants.py
+queries.py
