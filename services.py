@@ -16,6 +16,8 @@ from domain_constants import (
 	BOOLEAN_FLAGS,
 	CANDIDATE_FIELDS,
 	IBP_COMPONENT_WEIGHTS,
+	PAE_ACTIONS,
+	PQFL_FACTOR_ACTIONS,
 	PRIMARY_METRICS,
 )
 from domain_utils import (
@@ -30,6 +32,7 @@ from domain_utils import (
 	normalize_ibp_components,
 	normalize_query_fields,
 	parse_bool,
+	producer_factor_diagnostics,
 	safe_float,
 )
 from models import ProducerSnapshot
@@ -171,21 +174,67 @@ class ActionEngine:
 	}
 
 	def build_for_producer(self, snapshot: ProducerSnapshot) -> List[str]:
-		actions = list(self.BASE_ACTIONS.get(snapshot.group, []))
+		actions: List[str] = []
+
+		diagnostics = producer_factor_diagnostics(snapshot)
+		for diagnosis in diagnostics[:3]:
+			factor_key = str(diagnosis.get("factor_key", ""))
+			factor_label = str(diagnosis.get("factor_label", "Fator"))
+			failed_labels = [str(label) for label in diagnosis.get("failed_labels", [])]
+			if not failed_labels:
+				continue
+			gap_percent = float(diagnosis.get("gap", 0.0)) * 100
+			preview = ", ".join(failed_labels[:3])
+			if len(failed_labels) > 3:
+				preview += ", ..."
+			actions.append(f"Defeito identificado em {factor_label} ({gap_percent:.0f}% de não conformidade): {preview}.")
+			for recommendation in PQFL_FACTOR_ACTIONS.get(factor_key, [])[:2]:
+				actions.append(f"Ação necessária: {recommendation}")
+
+		def has_issue(value: Optional[object]) -> bool:
+			text = str(value or "").strip().lower()
+			if not text or text in {"não informado", "nao informado"}:
+				return False
+			if "nunca" in text or "sem problema" in text:
+				return False
+			return True
+
+		if has_issue(snapshot.clean_answers.get("ultima_qualidade_leite")):
+			for recommendation in PAE_ACTIONS.get("cpp", []):
+				actions.append(f"Ação necessária (PAE): {recommendation}")
+
+		if has_issue(snapshot.clean_answers.get("ultima_residuos_medicamentos")):
+			for recommendation in PAE_ACTIONS.get("residuos", []):
+				actions.append(f"Ação necessária (PAE): {recommendation}")
+
+		for group_action in self.BASE_ACTIONS.get(snapshot.group, []):
+			actions.append(f"Apoio estratégico: {group_action}")
+
 		production = snapshot.metrics.get("producaoMediaDiaria842366", 0)
 		capacity = snapshot.metrics.get("qualACapacidadeDoTanqueDeExpansao842415", 0)
 		people = snapshot.metrics.get("quantasPessoasEstaoEnvolvidasNaAtividadeLeiteira842372", 0)
 		if production < 15:
-			actions.append("Rever dieta, conforto e genética para elevar a produção média acima de 18 L/vaca/dia.")
+			actions.append("Ação necessária: Rever dieta, conforto e genética para elevar a produção média acima de 18 L/vaca/dia.")
 		if capacity and production and capacity < production * 50:
-			actions.append("Dimensionar o tanque de expansão para suportar pelo menos 2 ordenhas completas.")
+			actions.append("Ação necessária: Dimensionar o tanque de expansão para suportar pelo menos 2 ordenhas completas.")
 		if not snapshot.bool_flags.get("utilizaPre_dippingAntesDaOrdenha842439", False) or not snapshot.bool_flags.get("utilizaSolucaoPos_dippingAposAOrdenha842440", False):
-			actions.append("Implantar rotina completa de pré e pós-dipping para reduzir mastite.")
+			actions.append("Ação necessária: Implantar rotina completa de pré e pós-dipping para reduzir mastite.")
 		if not snapshot.bool_flags.get("possuiCalendarioSanitarioVacinacoesEndoEEctoparasitasEtc842452", False):
-			actions.append("Estruturar um calendário sanitário com apoio técnico e registrar as intervenções.")
+			actions.append("Ação necessária: Estruturar um calendário sanitário com apoio técnico e registrar as intervenções.")
 		if people < 2:
-			actions.append("Mapear necessidades de mão de obra e promover capacitação cruzada na equipe.")
-		return actions
+			actions.append("Ação necessária: Mapear necessidades de mão de obra e promover capacitação cruzada na equipe.")
+
+		if not actions:
+			return ["Sem defeitos críticos identificados no momento. Manter monitoramento e revisão anual do diagnóstico PQFL."]
+
+		unique_actions: List[str] = []
+		seen = set()
+		for action in actions:
+			if action in seen:
+				continue
+			seen.add(action)
+			unique_actions.append(action)
+		return unique_actions
 
 	def build_for_group(self, group: str) -> List[str]:
 		return self.BASE_ACTIONS.get(group, [])
@@ -215,31 +264,57 @@ class DataRepository:
 
 	def _parse_payload(self) -> None:
 		data = self.raw_payload.get("data", self.raw_payload)
-		if isinstance(data, list):
-			data = data[0] if data else {}
-		answer_block = data.get("answer", {})
-		if isinstance(answer_block, list):
-			answer_block = answer_block[0] if answer_block else {}
-		answers = answer_block.get("answer", [])
-		metadata = answer_block.get("metaData", [])
 
-		if isinstance(answers, dict):
-			answers = [answers]
-		if isinstance(metadata, dict):
-			metadata = [metadata]
-		if metadata and len(metadata) != len(answers):
-			while len(metadata) < len(answers):
-				metadata.append(metadata[-1])
+		answer_root = data.get("answer", []) if isinstance(data, dict) else []
+		if isinstance(answer_root, dict):
+			answer_blocks = [answer_root]
+		elif isinstance(answer_root, list):
+			answer_blocks = [block for block in answer_root if isinstance(block, dict)]
+		else:
+			answer_blocks = []
 
-		if not answers:
+		records: List[Tuple[Dict[str, str], Dict[str, str]]] = []
+		for block in answer_blocks:
+			block_answers = block.get("answer", [])
+			block_metadata = block.get("metaData", [])
+
+			if isinstance(block_answers, dict):
+				block_answers = [block_answers]
+			if isinstance(block_metadata, dict):
+				block_metadata = [block_metadata]
+
+			if not isinstance(block_answers, list):
+				continue
+			if not isinstance(block_metadata, list):
+				block_metadata = []
+
+			if block_metadata and len(block_metadata) < len(block_answers):
+				while len(block_metadata) < len(block_answers):
+					block_metadata.append(block_metadata[-1])
+
+			for idx, block_answer in enumerate(block_answers):
+				if not isinstance(block_answer, dict):
+					continue
+				meta = block_metadata[idx] if idx < len(block_metadata) and isinstance(block_metadata[idx], dict) else {}
+				records.append((block_answer, meta))
+
+		if not records:
 			return
 
-		for idx, answer in enumerate(answers):
+		for idx, (answer, meta) in enumerate(records):
 			answer = normalize_query_fields(answer)
-			meta = metadata[idx] if idx < len(metadata) else {}
 			created_at = self._parse_datetime(meta.get("createdAt")) or datetime.now(timezone.utc)
 			period_label = month_label(created_at)
-			producer_id = meta.get("userId") or answer.get("cpf842335") or f"anon-{idx}"
+			raw_producer_id = (
+				answer.get("cpf842335")
+				or answer.get("cpf")
+				or answer.get("nome842334")
+				or answer.get("nome")
+				or meta.get("friendlyId")
+				or meta.get("userId")
+				or f"anon-{idx}"
+			)
+			producer_id = str(raw_producer_id).strip() or f"anon-{idx}"
 			friendly_id = meta.get("friendlyId", str(answer.get("nome842334", "Sem nome")))
 			metrics = {key: safe_float(answer.get(key)) for key in PRIMARY_METRICS}
 			bool_flags = {key: parse_bool(answer.get(key)) for key in BOOLEAN_FLAGS}
@@ -278,6 +353,17 @@ class DataRepository:
 		except ValueError:
 			return None
 
+	def _producer_id_variants(self, producer_id: str) -> List[object]:
+		"""Gera variações de chave para compatibilidade com dados antigos do cache."""
+
+		variants: List[object] = []
+		text = str(producer_id).strip()
+		if text:
+			variants.append(text)
+		if text.isdigit():
+			variants.append(int(text))
+		return variants
+
 	def _classify(self, metrics: Dict[str, float], flags: Dict[str, bool]) -> Tuple[float, str]:
 		production = normalize(metrics.get("producaoMediaDiaria842366", 0), 0, 60)
 		capacity = normalize(metrics.get("qualACapacidadeDoTanqueDeExpansao842415", 0), 0, 5000)
@@ -313,13 +399,23 @@ class DataRepository:
 		return groups
 
 	def get_history(self, producer_id: str) -> List[ProducerSnapshot]:
-		history = self.snapshots.get(producer_id, {})
-		return sorted(history.values(), key=lambda snap: snap.created_at)
+		for key in self._producer_id_variants(producer_id):
+			history = self.snapshots.get(key, {})
+			if history:
+				return sorted(history.values(), key=lambda snap: snap.created_at)
+		return []
 
 	def get_snapshot(self, producer_id: str, period_label: Optional[str] = None) -> Optional[ProducerSnapshot]:
-		if period_label:
-			return self.snapshots.get(producer_id, {}).get(period_label)
-		return self.latest_snapshot.get(producer_id)
+		for key in self._producer_id_variants(producer_id):
+			if period_label:
+				snapshot = self.snapshots.get(key, {}).get(period_label)
+				if snapshot:
+					return snapshot
+			else:
+				snapshot = self.latest_snapshot.get(key)
+				if snapshot:
+					return snapshot
+		return None
 
 	def iter_latest_records(self) -> List[Dict[str, object]]:
 		"""Retorna registros consolidados da última resposta de cada produtor."""
