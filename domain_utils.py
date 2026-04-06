@@ -8,10 +8,16 @@ from statistics import fmean
 from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
 from domain_constants import (
+	BPA_FIELDS_MAP,
 	BEM_ESTAR_KEYS,
+	BOOLEAN_FLAGS,
 	IBP_COMPONENT_FIELDS,
 	IBP_COMPONENT_WEIGHTS,
+	PQFL_FACTOR_FIELD_ALIASES,
+	PQFL_FACTOR_LABELS,
 	QUERY_FIELD_ALIASES,
+	QUERY_FIELD_LABELS,
+	QUERY_FIELD_ORDER,
 	SANIDADE_KEYS,
 )
 
@@ -211,3 +217,83 @@ def average_performance_radar_values(snapshots: List["ProducerSnapshot"]) -> Lis
 		return [0.0] * 5
 	axes = [performance_radar_values(snapshot) for snapshot in snapshots]
 	return [_mean([axis[index] for axis in axes]) for index in range(5)]
+
+
+def pqfl_factor_scores(snapshot: "ProducerSnapshot") -> Dict[str, float]:
+	"""Calcula a conformidade (0..1) por fator oficial do PQFL."""
+
+	scores: Dict[str, float] = {}
+	for factor, fields in BPA_FIELDS_MAP.items():
+		scores[factor] = _mean([bool_to_rate(snapshot.bool_flags.get(field)) for field in fields])
+	return scores
+
+
+def producer_factor_diagnostics(snapshot: "ProducerSnapshot") -> List[Dict[str, object]]:
+	"""Retorna diagnóstico por fator, priorizando os com maior não conformidade."""
+
+	diagnostics: List[Dict[str, object]] = []
+	for factor, fields in BPA_FIELDS_MAP.items():
+		failed_fields = [field for field in fields if not snapshot.bool_flags.get(field, False)]
+		conformity = _mean([bool_to_rate(snapshot.bool_flags.get(field)) for field in fields])
+		diagnostics.append(
+			{
+				"factor_key": factor,
+				"factor_label": PQFL_FACTOR_LABELS.get(factor, factor.replace("_", " ").title()),
+				"conformity": conformity,
+				"gap": 1.0 - conformity,
+				"failed_fields": failed_fields,
+				"failed_labels": [BOOLEAN_FLAGS.get(field, field) for field in failed_fields],
+			}
+		)
+	diagnostics.sort(key=lambda item: float(item.get("conformity", 0.0)))
+	return diagnostics
+
+
+def top_pqfl_factor_gaps(snapshot: "ProducerSnapshot", top_n: int = 4) -> List[Dict[str, object]]:
+	"""Destaca os fatores em que o produtor mais pecou."""
+
+	diagnostics = producer_factor_diagnostics(snapshot)
+	if top_n <= 0:
+		return diagnostics
+	return diagnostics[:top_n]
+
+
+def build_query_field_rows(snapshot: "ProducerSnapshot") -> List[Dict[str, str]]:
+	"""Monta lista legível com todos os campos extraídos da query Coletum."""
+
+	rows: List[Dict[str, str]] = []
+	for alias in QUERY_FIELD_ORDER:
+		legacy = QUERY_FIELD_ALIASES.get(alias, alias)
+		value = snapshot.clean_answers.get(alias, snapshot.clean_answers.get(legacy))
+		rows.append(
+			{
+				"alias": alias,
+				"label": QUERY_FIELD_LABELS.get(alias, alias.replace("_", " ").capitalize()),
+				"value": clean_display_value(value),
+			}
+		)
+	return rows
+
+
+def group_query_fields_by_factor(snapshot: "ProducerSnapshot") -> Tuple[Dict[str, List[Dict[str, str]]], List[Dict[str, str]]]:
+	"""Agrupa os campos por fator oficial do PQFL e separa complementares."""
+
+	rows = build_query_field_rows(snapshot)
+	rows_by_alias = {row["alias"]: row for row in rows}
+	grouped: Dict[str, List[Dict[str, str]]] = {}
+	used_aliases = set()
+
+	for factor, aliases in PQFL_FACTOR_FIELD_ALIASES.items():
+		grouped[factor] = []
+		for alias in aliases:
+			row = rows_by_alias.get(alias)
+			if row:
+				grouped[factor].append(row)
+				used_aliases.add(alias)
+
+	remaining = [
+		rows_by_alias[alias]
+		for alias in QUERY_FIELD_ORDER
+		if alias in rows_by_alias and alias not in used_aliases
+	]
+	return grouped, remaining

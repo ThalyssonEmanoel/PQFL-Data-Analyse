@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import textwrap
 from typing import Dict, List
 
 import tkinter as tk
@@ -24,6 +25,7 @@ from domain_utils import (
 	parse_bool,
 	pearson_correlation,
 	performance_radar_values,
+	top_pqfl_factor_gaps,
 )
 from models import ProducerSnapshot
 
@@ -86,14 +88,42 @@ class ChartFactory:
 		angles = [n / float(len(labels)) * 2 * math.pi for n in range(len(labels))]
 		angles.append(angles[0])
 
-		figure = Figure(figsize=(4, 3), dpi=100)
+		figure = Figure(figsize=(4.2, 3.2), dpi=100)
 		axis = figure.add_subplot(111, polar=True)
 		axis.plot(angles, values, color="#fcd34d")
 		axis.fill(angles, values, color="#fcd34d", alpha=0.25)
 		axis.set_xticks(angles[:-1])
 		axis.set_xticklabels(labels)
 		axis.set_yticklabels([])
-		axis.set_title("Radar de desempenho")
+		axis.set_title("Radar de desempenho", pad=12)
+		figure.subplots_adjust(top=0.84, bottom=0.08, left=0.06, right=0.94)
+		canvas = FigureCanvasTkAgg(figure, master=parent)
+		canvas.draw()
+		return canvas
+
+	def pqfl_factor_gaps_chart(self, parent: tk.Widget, snapshot: ProducerSnapshot) -> FigureCanvasTkAgg:
+		"""Mostra os fatores oficiais do PQFL com maior não conformidade."""
+
+		figure = Figure(figsize=(5.8, 3.6), dpi=110)
+		axis = figure.add_subplot(111)
+		diagnostics = top_pqfl_factor_gaps(snapshot, top_n=5)
+		if diagnostics:
+			labels = [textwrap.fill(str(item.get("factor_label", "Fator")), width=28) for item in diagnostics]
+			gaps = [float(item.get("gap", 0.0)) * 100 for item in diagnostics]
+			colors = ["#dc2626", "#ea580c", "#f97316", "#fb923c", "#fdba74"]
+			bars = axis.barh(labels, gaps, color=colors[: len(labels)])
+			axis.invert_yaxis()
+			axis.tick_params(axis="y", labelsize=9)
+			for bar, value in zip(bars, gaps):
+				label_x = min(value + 1.0, 96.0)
+				axis.text(label_x, bar.get_y() + bar.get_height() / 2, f"{value:.0f}%", va="center", fontsize=9)
+		else:
+			axis.barh(["Sem dados"], [0], color="#94a3b8")
+		axis.set_xlim(0, 100)
+		axis.set_xlabel("Não conformidade (%)")
+		axis.set_title("Top falhas por fator PQFL")
+		axis.grid(axis="x", linestyle="--", alpha=0.3)
+		figure.subplots_adjust(left=0.50, right=0.98, top=0.88, bottom=0.20)
 		canvas = FigureCanvasTkAgg(figure, master=parent)
 		canvas.draw()
 		return canvas

@@ -22,12 +22,14 @@ from charts import ChartFactory
 from config import API_DOC, CACHE_FILE, LOG_FILE
 from domain_constants import (
 	METRIC_LABEL_TO_KEY,
+	PQFL_FACTOR_LABELS,
 	PERFORMANCE_RADAR_LABELS,
 	PRIMARY_METRICS,
 )
 from domain_utils import (
 	_mean,
 	average_performance_radar_values,
+	group_query_fields_by_factor,
 	performance_radar_values,
 )
 from models import ProducerSnapshot
@@ -76,9 +78,16 @@ class MainMenuFrame(tb.Frame):
 			btn = tb.Button(card, text="Abrir", command=item["command"], bootstyle="primary-outline")
 			btn.pack(fill=X)
 
+		actions = tb.Frame(self)
+		actions.grid(row=1, column=0, columnspan=4, sticky=E, pady=(20, 0))
+		tb.Button(actions, text="Atualizar dados", command=self._refresh_data, bootstyle="info").pack(side=tk.RIGHT)
+
 	def _navigate(self, target: str) -> None:
 		self.app.logger.log(event="navegacao", notes=f"Tela {target}")
 		self.app.show_frame(target)
+
+	def _refresh_data(self) -> None:
+		self.app.refresh_data()
 
 
 class ProducersFrame(tb.Frame):
@@ -120,8 +129,22 @@ class ProducersFrame(tb.Frame):
 		self.detail_title = tb.Label(self.detail_frame, text="Selecione um produtor", font=("Segoe UI", 18, "bold"))
 		self.detail_title.pack(anchor=W)
 
-		self.chart_container = tb.Frame(self.detail_frame)
-		self.chart_container.pack(fill=BOTH, expand=True, pady=10)
+		self.detail_notebook = tb.Notebook(self.detail_frame)
+		self.detail_notebook.pack(fill=BOTH, expand=True, pady=10)
+		self.charts_tab = tb.Frame(self.detail_notebook, padding=8)
+		self.query_tab = tb.Frame(self.detail_notebook, padding=8)
+		self.detail_notebook.add(self.charts_tab, text="Gráficos")
+		self.detail_notebook.add(self.query_tab, text="Consulta detalhada")
+
+		self.chart_container = tb.Frame(self.charts_tab)
+		self.chart_container.pack(fill=BOTH, expand=True)
+
+		self.query_scroll = ScrolledFrame(self.query_tab, autohide=True)
+		self.query_scroll.pack(fill=BOTH, expand=True)
+		if hasattr(self.query_scroll, "scrollable_frame"):
+			self.query_body = self.query_scroll.scrollable_frame
+		else:
+			self.query_body = self.query_scroll
 
 		# Novo: seleção de indicador para o gráfico de linha
 		self.metric_var = tk.StringVar(value=PRIMARY_METRICS["producaoMediaDiaria842366"])
@@ -182,7 +205,45 @@ class ProducersFrame(tb.Frame):
 		bar = self.chart_factory.bar_chart(self.chart_container, self.selected_producer)
 		bar.get_tk_widget().grid(row=0, column=1, padx=5, pady=5)
 		radar = self.chart_factory.radar_chart(self.chart_container, self.selected_producer)
-		radar.get_tk_widget().grid(row=1, column=0, columnspan=2, padx=5, pady=5)
+		radar.get_tk_widget().grid(row=1, column=0, padx=5, pady=5)
+		factors = self.chart_factory.pqfl_factor_gaps_chart(self.chart_container, self.selected_producer)
+		factors.get_tk_widget().grid(row=1, column=1, padx=5, pady=5)
+		self._render_detailed_query()
+
+	def _render_detailed_query(self) -> None:
+		for child in self.query_body.winfo_children():
+			child.destroy()
+		if not self.selected_producer:
+			return
+
+		grouped_rows, remaining_rows = group_query_fields_by_factor(self.selected_producer)
+
+		header = tb.Label(
+			self.query_body,
+			text="Todos os campos recebidos do Coletum organizados por fator oficial do PQFL",
+			font=("Segoe UI", 12, "bold"),
+		)
+		header.pack(anchor=W, pady=(0, 10))
+
+		for factor_key, rows in grouped_rows.items():
+			if not rows:
+				continue
+			factor_label = PQFL_FACTOR_LABELS.get(factor_key, factor_key.replace("_", " ").title())
+			card = tb.Labelframe(self.query_body, text=f"Fator PQFL: {factor_label}", padding=10)
+			card.pack(fill=X, expand=True, pady=(0, 8))
+			self._render_query_rows(card, rows)
+
+		if remaining_rows:
+			extra = tb.Labelframe(self.query_body, text="Campos complementares do formulário", padding=10)
+			extra.pack(fill=X, expand=True, pady=(0, 8))
+			self._render_query_rows(extra, remaining_rows)
+
+	def _render_query_rows(self, parent: tk.Widget, rows: List[Dict[str, str]]) -> None:
+		table = tb.Frame(parent)
+		table.pack(fill=X, expand=True)
+		for idx, row in enumerate(rows):
+			tb.Label(table, text=f"{row.get('label', '')}:", font=("Segoe UI", 10, "bold")).grid(row=idx, column=0, sticky=W, padx=(0, 10), pady=2)
+			tb.Label(table, text=row.get("value", "Não Informado"), wraplength=860, justify=tk.LEFT).grid(row=idx, column=1, sticky=W, pady=2)
 
 	def _open_actions(self) -> None:
 		if not self.selected_producer:
@@ -605,6 +666,7 @@ class DashboardApp(tb.Window):
 		self.logger = ActivityLogger(LOG_FILE)
 		self.actions = ActionEngine()
 		self._repository: Optional[DataRepository] = None
+		self._loading_data = False
 
 		self.status_var = tk.StringVar(value="Carregando dados...")
 		status_bar = tb.Label(self, textvariable=self.status_var, relief="groove")
@@ -614,7 +676,8 @@ class DashboardApp(tb.Window):
 		self.frames: Dict[str, tb.Frame] = {}
 		self._build_frames()
 
-		threading.Thread(target=self._load_data, daemon=True).start()
+		self._loading_data = True
+		threading.Thread(target=self._load_data, kwargs={"force_refresh": False}, daemon=True).start()
 
 	def _build_frames(self) -> None:
 		self.container = tb.Frame(self)
@@ -666,19 +729,26 @@ class DashboardApp(tb.Window):
 		)
 		Messagebox.show_info(details, "Webservice Coletum")
 
-	def _load_data(self) -> None:
+	def _load_data(self, *, force_refresh: bool = False) -> None:
 		try:
-			payload = self.client.fetch_answers()
+			payload = self.client.fetch_answers(use_cache=not force_refresh)
 			data = payload.get("data", payload)
 			self.repository = DataRepository(data)
-			self._after_data_ready("Dados carregados com sucesso.")
+			if force_refresh:
+				self._after_data_ready("Dados atualizados com sucesso.")
+			else:
+				self._after_data_ready("Dados carregados com sucesso.")
 		except Exception as exc:  # pragma: no cover - tratar erro runtime
 			logging.error("Erro ao carregar dados: %s", exc)
 			self.repository = DataRepository({})
-			self._after_data_ready("Falha ao acessar API. Usando dados offline.")
+			if force_refresh:
+				self._after_data_ready("Falha ao atualizar API. Dados de cache mantidos.")
+			else:
+				self._after_data_ready("Falha ao acessar API. Usando dados offline.")
 
 	def _after_data_ready(self, message: str) -> None:
 		def update_ui() -> None:
+			self._loading_data = False
 			self.status_var.set(message)
 			self.frames["producers"].refresh()
 			self.frames["groups"].refresh()
@@ -686,6 +756,15 @@ class DashboardApp(tb.Window):
 			self.frames["diagnostico"].refresh()
 
 		self.after(0, update_ui)
+
+	def refresh_data(self) -> None:
+		if self._loading_data:
+			Messagebox.show_info("Uma atualização já está em andamento.", "Atualizar dados")
+			return
+		self._loading_data = True
+		self.status_var.set("Atualizando dados no webservice...")
+		self.logger.log(event="atualizacao_dados", status="pendente", notes="Atualização manual solicitada")
+		threading.Thread(target=self._load_data, kwargs={"force_refresh": True}, daemon=True).start()
 
 	def show_frame(self, name: str) -> None:
 		frame = self.frames.get(name)
