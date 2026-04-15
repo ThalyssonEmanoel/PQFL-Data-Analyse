@@ -1,0 +1,145 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #edf5f3;
+  --surface: #ffffff;
+  --ink: #1e2f2b;
+  --brand: #1f7a67;
+  --brand-strong: #155143;
+  --brand-soft: #d7ede7;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at 12% 18%, #d5ece5 0%, transparent 40%),
+    radial-gradient(circle at 90% 2%, #f2e8cf 0%, transparent 35%),
+    linear-gradient(180deg, #f7fbfa 0%, var(--bg) 100%);
+  font-family: "Trebuchet MS", "Lucida Sans Unicode", "Lucida Grande", "Lucida Sans", sans-serif;
+}
+
+.shell {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+@media (min-width: 768px) {
+  .shell {
+    padding: 30px;
+  }
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid #d4e5df;
+  box-shadow: 0 8px 24px rgba(21, 81, 67, 0.08);
+  border-radius: 14px;
+}
+
+.card-title {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 0.74rem;
+  color: #4b5563;
+  font-weight: 700;
+}
+
+.card-value {
+  margin-top: 0.5rem;
+  font-size: 1.9rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.section-title {
+  color: var(--brand-strong);
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+
+.a4-report {
+  width: 210mm;
+  min-height: 297mm;
+  margin: 0 auto;
+  padding: 12mm;
+  background: #ffffff;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.1);
+}
+
+.print-only {
+  display: none;
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 10mm;
+  }
+
+  html,
+  body {
+    margin: 0;
+    padding: 0;
+    background: #ffffff !important;
+    font-size: 11pt;
+    line-height: 1.25;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  .shell {
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .a4-report {
+    width: 100% !important;
+    min-height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  .card,
+  .avoid-break,
+  table,
+  tr,
+  td,
+  th,
+  svg,
+  canvas,
+  img {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  table {
+    width: 100% !important;
+    border-collapse: collapse;
+  }
+
+  h1,
+  h2,
+  h3 {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+}
