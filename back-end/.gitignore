@@ -1,0 +1,23 @@
+node_modules
+.env
+.env.local
+.env.*.local
+
+# logs
+logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# coverage / test artifacts
+coverage
+.nyc_output
+
+# OS / editor
+.DS_Store
+.idea
+.vscode
+
+# build output (if we ever add one)
+dist
+build
