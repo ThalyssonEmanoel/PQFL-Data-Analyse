@@ -1,62 +1,56 @@
-# Step - 6: Deploy Folder Preparation (Kubernetes Ready)
+# Step - 9: Testing Strategy and Quality Gates
 
-In this phase, I prepare deployment assets without actually deploying yet.
+In this phase, I define tests early so architecture quality does not degrade while features grow.
 
-## 1) Keep `Deploy/` now, deploy later
+## 1) Test folder strategy
 
-I will create `Deploy/` now as requested and keep deployment implementation for a later phase.
+I will use `src/test` and separate by test type:
 
-## 2) Suggested files to place in `Deploy/`
+- `unit`
+- `integration`
+- `contract` (optional)
 
-Even if placeholders for now:
+## 2) First tests I will write
 
-- `README.md`
-- `deployment.yaml`
-- `service.yaml`
-- `configmap.yaml`
-- `secret.example.yaml`
-- `hpa.yaml` (optional, later)
-- `ingress.yaml` (optional, later)
+- Health route integration test.
+- Producer service unit test.
+- Producer route validation error test.
 
-## 3) Infra best practices I plan to follow
+## 3) What I will test per layer
 
-- Readiness and liveness probes (`/api/v1/health`).
-- Resource requests/limits.
-- Externalized config through env vars.
-- No secrets in git.
-- Rolling updates strategy.
+- Schemas: validation behavior.
+- Services: business rules and edge cases.
+- Repositories: integration tests with MongoDB test environment.
+- Routes/controllers: status codes and payload shape.
 
-## 4) Container preparation checklist
+## 4) Suggested tools
 
-When I move to deployment implementation, I will add:
+I can start with Node built-in test runner to stay simple.
 
-- Production Dockerfile.
-- `.dockerignore`.
-- Non-root container user.
-- Healthcheck path matching app health endpoint.
+If I need a richer stack, I can adopt:
 
-## 5) Operational readiness notes
+- `vitest` for tests.
+- `supertest` for HTTP integration tests.
+- `mongodb-memory-server` for isolated repository integration tests.
 
-Before real deploy, I want:
+## 5) Minimum quality gate before merge
 
-- Structured logs enabled.
-- Graceful shutdown validated.
-- DB/index evolution strategy defined for pipeline (`migrate-mongo up` and index sync process).
-- Environment matrix documented (dev, staging, prod).
+For each endpoint added:
 
-## 6) Frontend migration plan (later phase)
+- One success test.
+- One validation failure test.
+- One service edge-case test.
 
-Only after backend is stable:
+## 6) CI-ready checks (later but planned now)
 
-1. Point frontend API calls to backend endpoints.
-2. Validate parity against current behavior.
-3. Switch feature by feature.
-4. Remove old direct data coupling.
+I want a CI pipeline to run:
 
-This keeps risk low and avoids a hard cutover.
+- Lint
+- Tests
+- Mongoose model and migration checks (when migration scripts are enabled)
 
 ## Definition of done for this step
 
-- Deploy folder strategy is defined.
-- Kubernetes artifacts are planned.
-- Backend is ready for next phase (actual container and cluster rollout).
+- Test structure exists.
+- Core routes have test coverage.
+- I can run tests locally with one command.

@@ -1,11 +1,11 @@
-import "dotenv/config";
+require("dotenv").config();
 
-const config = {
+module.exports = {
   mongodb: {
     url: process.env.MONGODB_URI,
     databaseName: process.env.MONGODB_DB_NAME,
     options: {
-      serverSelectionTimeoutMS: 5_000,
+      serverSelectionTimeoutMS: 5000,
     },
   },
   migrationsDir: "migrations",
@@ -14,5 +14,3 @@ const config = {
   useFileHash: false,
   moduleSystem: "esm",
 };
-
-export default config;

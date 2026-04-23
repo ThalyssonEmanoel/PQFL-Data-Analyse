@@ -1,17 +1,30 @@
 export const up = async (db) => {
   const collection = db.collection("producers");
+  const createIndexIfMissing = async (keys, options) => {
+    try {
+      await collection.createIndex(keys, options);
+    } catch (err) {
+      const alreadyExistsWithOtherName =
+        typeof err?.message === "string" &&
+        err.message.includes("already exists with a different name");
 
-  await collection.createIndex(
+      if (!alreadyExistsWithOtherName) {
+        throw err;
+      }
+    }
+  };
+
+  await createIndexIfMissing(
     { producerId: 1 },
     { name: "uniq_producerId", unique: true },
   );
-  await collection.createIndex(
+  await createIndexIfMissing(
     { group: 1, totalScore: -1 },
     { name: "group_totalScore" },
   );
-  await collection.createIndex({ totalScore: -1 }, { name: "totalScore" });
-  await collection.createIndex({ updatedAt: -1 }, { name: "updatedAt" });
-  await collection.createIndex(
+  await createIndexIfMissing({ totalScore: -1 }, { name: "totalScore" });
+  await createIndexIfMissing({ updatedAt: -1 }, { name: "updatedAt" });
+  await createIndexIfMissing(
     { producerName: "text" },
     { name: "producerName_text" },
   );

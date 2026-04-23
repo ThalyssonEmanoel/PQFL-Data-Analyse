@@ -7,9 +7,9 @@
   "scripts": {
     "dev": "nodemon server.js",
     "start": "node server.js",
-    "db:migrate:create": "migrate-mongo create",
-    "db:migrate:up": "migrate-mongo up",
-    "db:migrate:down": "migrate-mongo down",
+    "db:migrate:create": "migrate-mongo create -f migrate-mongo-config.cjs",
+    "db:migrate:up": "migrate-mongo up -f migrate-mongo-config.cjs",
+    "db:migrate:down": "migrate-mongo down -f migrate-mongo-config.cjs",
     "seed": "node src/seed/index.js",
     "test": "node --test"
   },
