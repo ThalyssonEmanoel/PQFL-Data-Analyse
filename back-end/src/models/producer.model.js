@@ -67,6 +67,18 @@ const producerSchema = new Schema(
       hasResidue: { type: Boolean, required: true, default: false },
     },
     rawPayload: { type: Schema.Types.Mixed, default: {} },
+
+    // Sync provenance (Step-5).
+    source: { type: String, default: null, trim: true },
+    sourcePage: { type: Number, default: null },
+    sourceAnswerId: { type: String, default: null, trim: true },
+    dedupKey: { type: String, default: null, trim: true },
+    lastSyncAt: { type: Date, default: null },
+    scoringStatus: {
+      type: String,
+      enum: ["pending", "scored", "stale"],
+      default: "pending",
+    },
   },
   {
     timestamps: true,
@@ -78,6 +90,11 @@ producerSchema.index({ group: 1, totalScore: -1 });
 producerSchema.index({ totalScore: -1 });
 producerSchema.index({ updatedAt: -1 });
 producerSchema.index({ producerName: "text" });
+producerSchema.index({ lastSyncAt: -1 });
+producerSchema.index(
+  { dedupKey: 1 },
+  { unique: true, partialFilterExpression: { dedupKey: { $type: "string" } } },
+);
 
 producerSchema.set("toJSON", {
   virtuals: false,

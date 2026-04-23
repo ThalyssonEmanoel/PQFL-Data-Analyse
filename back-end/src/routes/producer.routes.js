@@ -6,6 +6,7 @@ import {
   listProducersQuerySchema,
   producerIdParamsSchema,
 } from "../schemas/producer.schema.js";
+import { refreshOptionsSchema } from "../schemas/producer-refresh.schema.js";
 
 const router = Router();
 
@@ -13,6 +14,12 @@ router.get(
   "/",
   validate({ query: listProducersQuerySchema }),
   asyncHandler(producerController.list),
+);
+
+router.post(
+  "/refresh",
+  validate({ body: refreshOptionsSchema }),
+  asyncHandler(producerController.refresh),
 );
 
 router.get(

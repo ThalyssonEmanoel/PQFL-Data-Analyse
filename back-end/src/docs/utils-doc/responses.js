@@ -20,8 +20,10 @@ export function jsonResponse(description, schemaRef) {
 
 export const commonErrorResponses = {
   400: buildResponse("Invalid request data", validationErrorRef),
+  403: buildResponse("Operation disabled or not permitted", apiErrorRef),
   404: buildResponse("Resource not found", apiErrorRef),
-  409: buildResponse("Conflict with existing resource", apiErrorRef),
+  409: buildResponse("Conflict with existing resource or in-flight operation", apiErrorRef),
   422: buildResponse("Unprocessable entity", apiErrorRef),
   500: buildResponse("Unexpected server error", apiErrorRef),
+  502: buildResponse("Upstream service error (e.g. Coletum)", apiErrorRef),
 };
