@@ -1,34 +1,26 @@
 {
-  "name": "pqfl-backend",
-  "version": "0.1.0",
-  "description": "PQFL data analyse backend API (Express + Mongoose).",
-  "type": "module",
+  "name": "pqfl-dashboard-backend",
+  "version": "1.0.0",
+  "description": "Este repositório contém o back-end do PQFL Dashboard. Ele é responsável por coletar, tratar e expor os dados do Plano de Qualificação de Fornecedores de Leite por meio de uma API HTTP consumida pelo front-end. A camada de servidor centraliza a integração com o Coletum, aplica as regras de negócio necessárias, controla o fluxo de atualização e fornece os endpoints usados pelo dashboard. Este projeto não inclui a interface web; ele funciona como a base de dados e serviços da aplicação.",
   "main": "server.js",
   "scripts": {
-    "dev": "nodemon server.js",
+    "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node server.js",
-    "db:migrate:create": "migrate-mongo create -f migrate-mongo-config.cjs",
-    "db:migrate:up": "migrate-mongo up -f migrate-mongo-config.cjs",
-    "db:migrate:down": "migrate-mongo down -f migrate-mongo-config.cjs",
-    "seed": "node src/seed/index.js",
-    "test": "node --test"
+    "dev": "nodemon server.js"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ThalyssonEmanoel/PQFL-Data-Analyse/blob/Back-end"
+  },
+  "author": "Thalysson Emanoel C. Vargas",
+  "license": "ISC",
   "dependencies": {
-    "cors": "^2.8.5",
-    "dotenv": "^16.4.5",
-    "express": "^4.19.2",
-    "helmet": "^7.1.0",
-    "mongoose": "^8.3.0",
-    "morgan": "^1.10.0",
-    "pino": "^9.0.0",
-    "pino-http": "^10.0.0",
-    "swagger-jsdoc": "^6.2.8",
-    "swagger-ui-express": "^5.0.0",
-    "zod": "^3.23.0"
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "mongoose": "^9.6.1"
   },
   "devDependencies": {
-    "migrate-mongo": "^11.0.0",
-    "nodemon": "^3.1.0",
-    "pino-pretty": "^11.0.0"
+    "nodemon": "^3.1.14"
   }
 }

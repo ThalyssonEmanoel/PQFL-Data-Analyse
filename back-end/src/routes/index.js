@@ -1,10 +1,31 @@
-import { Router } from "express";
-import healthRoutes from "./health.routes.js";
-import producerRoutes from "./producer.routes.js";
+import express from "express";
+// import swaggerJsDoc from "swagger-jsdoc";
+// import swaggerUI from "swagger-ui-express";
+// import getSwaggerOptions from "../docs/config/head.js";
+// import users from "./UserRoute.js";
+// import auth from "./AuthRoutes.js";
+import suppliers from "./SuppliersRoute.js";
 
-const router = Router();
+const routes = (app) => {
+    // Configurando a documentação da Swagger UI para ser servida diretamente em '/'
+    // const swaggerDocs = swaggerJsDoc(getSwaggerOptions());
+    // app.use(swaggerUI.serve);
+    // app.get("/", (req, res, next) => {
+    //     swaggerUI.setup(swaggerDocs)(req, res, next);
+    // });
 
-router.use("/health", healthRoutes);
-router.use("/producers", producerRoutes);
+    app.use(
+        express.json(),
+        // rotas
+        // auth,
+        // users,
+        suppliers
+    );
 
-export default router;
+    // Se não é nenhuma rota válida, produz 404
+    app.use((req, res) => {
+        res.status(404).json({ message: "Rota não encontrada" });
+    });
+};
+
+export default routes;
