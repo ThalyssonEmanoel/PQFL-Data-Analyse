@@ -1,14 +1,6 @@
-# O que precisa ser feito no momento
- 
-- Fazer o GET de todas as informações do WEBSERVICE coletum e guardar elas no banco já categorizadas ou seja, o service de Supplier deve fazer o cálculo.
 
-- Preciso criar pesos PARA CADA UM DOS CAMPOS DO ITENS ABAIXO no **tópico 3**
-
-- Preciso descrever exatamente os planos de ações
-
-
-## Tópico 3
-ITENS a serem salvos e utilizados:
+## Tópico 1
+As únicas informações que devem ser:
 
 ```bash
 {
@@ -121,14 +113,5 @@ ITENS a serem salvos e utilizados:
         "_entrevistador_em_uma_escala_de__a__onde__e_muito_magro_e__e_muito_gordo_qual_a_media_aparente_do_rebanho352092": 4
       },
       }
-    }
-  ],
-  "pagination": {
-    "page": 1,
-    "page_size": 1,
-    "total_items": 794,
-    "total_pages": 794,
-    "has_next": true
-  }
 }
 ```

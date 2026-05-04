@@ -5,7 +5,7 @@ import SuppliersController from '../controllers/SuppliersController.js';
 
 const router = Router();
 
-router.get('/suppliers/develop/v1', SuppliersController.listAllSuppliers);// Lista absolutamente tudo, com todos os filtros, mas sem limitações
+router.get('/suppliers/v1', SuppliersController.listAllSuppliers);
 router.get('/suppliers', SuppliersController.listSuppliers); //Deve buscar no banco apenas as informações paginadas.
 router.post('/suppliers/pull-all', SuppliersController.pullAllSuppliers);
 router.post('/suppliers/pull-partial', SuppliersController.pullPartialSupplier);

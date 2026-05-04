@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Este repositório contém o back-end do PQFL Dashboard. Ele é responsável por coletar, tratar e expor os dados do Plano de Qualificação de Fornecedores de Leite por meio de uma API HTTP consumida pelo front-end. A camada de servidor centraliza a integração com o Coletum, aplica as regras de negócio necessárias, controla o fluxo de atualização e fornece os endpoints usados pelo dashboard. Este projeto não inclui a interface web; ele funciona como a base de dados e serviços da aplicação.",
   "main": "server.js",
+  "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node server.js",
@@ -15,10 +16,14 @@
   "author": "Thalysson Emanoel C. Vargas",
   "license": "ISC",
   "dependencies": {
+    "axios": "^1.16.0",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
-    "mongoose": "^9.6.1"
+    "mongoose": "^9.6.1",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "nodemon": "^3.1.14"

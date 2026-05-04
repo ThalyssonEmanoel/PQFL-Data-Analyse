@@ -1,9 +1,20 @@
 import "dotenv/config";
 import app from "./src/app.js";
+import connectDatabase from "./src/config/database.js";
 
 const port = process.env.PORT || 8080;
 
-app.listen(port, ()=>{
-  console.log(`FUNCIONOU, ESTÁ RODANDO NA PORTA: http://localhost:${port}`);
-  console.log(`PORTA DO BANCO: http://localhost:5001`);
-})
+const start = async () => {
+  try {
+    await connectDatabase();
+    app.listen(port, () => {
+      console.log(`API rodando em: http://localhost:${port}`);
+      console.log(`Swagger UI:     http://localhost:${port}/docs`);
+    });
+  } catch (error) {
+    console.error("Falha ao iniciar o servidor:", error.message);
+    process.exit(1);
+  }
+};
+
+start();
