@@ -1,34 +1,11 @@
 import SuppliersService from "../services/SuppliersService.js";
 import HttpStatusCodes from "../utils/HttpStatusCodes.js";
 import { listSuppliersQuerySchema } from "../schemas/supplierSchema.js";
+import buildErrorPayload from "../utils/buildErrorPayload.js";
 
-const buildErrorPayload = (error, fallback = HttpStatusCodes.INTERNAL_SERVER_ERROR) => {
-  if (error?.issues) {
-    return {
-      status: HttpStatusCodes.BAD_REQUEST.code,
-      body: { message: "Parâmetros inválidos", details: error.issues },
-    };
-  }
-
-  if (error?.response) {
-    const upstreamCode = error.response.status;
-    const upstreamMessage = error.response.data?.message || error.message;
-    return {
-      status: upstreamCode,
-      body: {
-        message: `Erro ao consultar Coletum: ${upstreamMessage}`,
-        upstream: error.response.data ?? null,
-      },
-    };
-  }
-
-  return {
-    status: fallback.code,
-    body: { message: error?.message || fallback.message },
-  };
-};
-
+// Handlers HTTP para operacoes de fornecedores.
 class SuppliersController {
+  // Lista todos os fornecedores; sincroniza antes caso o banco esteja vazio ou haja delta.
   static async listAllSuppliers(req, res) {
     try {
       const service = new SuppliersService();
@@ -47,6 +24,7 @@ class SuppliersController {
     }
   }
 
+  // Lista fornecedores com paginacao, validando os parametros da query string.
   static async listSuppliers(req, res) {
     try {
       const query = listSuppliersQuerySchema.parse(req.query);
@@ -59,6 +37,7 @@ class SuppliersController {
     }
   }
 
+  // Dispara sincronizacao completa com o Coletum.
   static async pullAllSuppliers(req, res) {
     try {
       const service = new SuppliersService();
@@ -70,6 +49,7 @@ class SuppliersController {
     }
   }
 
+  // Dispara sincronizacao incremental (delta) com o Coletum.
   static async pullPartialSupplier(req, res) {
     try {
       const service = new SuppliersService();

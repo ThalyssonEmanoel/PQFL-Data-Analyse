@@ -3,8 +3,10 @@ import SyncState from "../models/SyncState.js";
 import ColetumService from "./ColetumService.js";
 import coletumConfig from "../config/coletum.js";
 
+// Converte datas para ISO ou null quando ausentes.
 const toIsoOrNull = (value) => (value ? new Date(value).toISOString() : null);
 
+// Monta o documento persistido no Mongo a partir da resposta do Coletum.
 const buildSupplierDoc = (entry, formId) => ({
   coletumId: entry.id,
   formId,
@@ -16,18 +18,22 @@ const buildSupplierDoc = (entry, formId) => ({
   },
 });
 
+// Orquestra sincronizacao com Coletum e leitura/gravação no banco.
 class SuppliersService {
+  // Permite injetar um ColetumService para testes ou configuracoes alternativas.
   constructor({ coletumService } = {}) {
     this.coletum = coletumService ?? new ColetumService();
     this.formId = coletumConfig.formId;
   }
 
+  // Recupera (ou cria) o estado de sincronizacao do formulario.
   async getSyncState() {
     let state = await SyncState.findOne({ formId: this.formId });
     if (!state) state = await SyncState.create({ formId: this.formId });
     return state;
   }
 
+  // Atualiza ou cria o fornecedor pelo ID do Coletum.
   async upsertAnswer(entry) {
     const doc = buildSupplierDoc(entry, this.formId);
     await Supplier.updateOne(
@@ -38,6 +44,7 @@ class SuppliersService {
     return doc;
   }
 
+  // Sincroniza todas as respostas do Coletum e atualiza o estado completo.
   async pullAll() {
     this.coletum.resetRequestCount();
     const state = await this.getSyncState();
@@ -71,6 +78,7 @@ class SuppliersService {
     };
   }
 
+  // Sincroniza apenas respostas alteradas desde o ultimo sync.
   async pullPartial() {
     this.coletum.resetRequestCount();
     const state = await this.getSyncState();
@@ -109,11 +117,13 @@ class SuppliersService {
     };
   }
 
+  // Lista todos os fornecedores armazenados no banco.
   async listAllFromDatabase() {
     const items = await Supplier.find({ formId: this.formId }).lean();
     return { total: items.length, data: items };
   }
 
+  // Retorna fornecedores paginados com metadados de navegacao.
   async listPaginated({ page = 1, pageSize = 50 } = {}) {
     const skip = (page - 1) * pageSize;
     const [items, total] = await Promise.all([
