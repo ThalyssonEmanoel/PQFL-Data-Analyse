@@ -1,7 +1,7 @@
-import Supplier from "../models/Supplier.js";
-import SyncState from "../models/SyncState.js";
 import ColetumService from "./ColetumService.js";
 import coletumConfig from "../config/coletum.js";
+import SupplierRepository from "../repositories/SupplierRepository.js";
+import SyncStateRepository from "../repositories/SyncStateRepository.js";
 
 // Converte datas para ISO ou null quando ausentes.
 const toIsoOrNull = (value) => (value ? new Date(value).toISOString() : null);
@@ -28,19 +28,13 @@ class SuppliersService {
 
   // Recupera (ou cria) o estado de sincronizacao do formulario.
   async getSyncState() {
-    let state = await SyncState.findOne({ formId: this.formId });
-    if (!state) state = await SyncState.create({ formId: this.formId });
-    return state;
+    return SyncStateRepository.getOrCreateByFormId(this.formId);
   }
 
   // Atualiza ou cria o fornecedor pelo ID do Coletum.
   async upsertAnswer(entry) {
     const doc = buildSupplierDoc(entry, this.formId);
-    await Supplier.updateOne(
-      { coletumId: entry.id },
-      { $set: doc },
-      { upsert: true }
-    );
+    await SupplierRepository.upsertByColetumId(entry.id, doc);
     return doc;
   }
 
@@ -62,19 +56,21 @@ class SuppliersService {
       }
     }
 
-    const total = await Supplier.countDocuments({ formId: this.formId });
-    state.lastSyncedAt = maxUpdatedAt ?? state.lastSyncedAt;
-    state.lastFullSyncAt = new Date();
-    state.totalRecords = total;
-    state.lastRunRequests = this.coletum.requestCount;
-    state.lastRunAt = new Date();
-    await state.save();
+    const total = await SupplierRepository.countByFormId(this.formId);
+    const newLastSyncedAt = maxUpdatedAt ?? state.lastSyncedAt;
+    await SyncStateRepository.updateByFormId(this.formId, {
+      lastSyncedAt: newLastSyncedAt,
+      lastFullSyncAt: new Date(),
+      totalRecords: total,
+      lastRunRequests: this.coletum.requestCount,
+      lastRunAt: new Date(),
+    });
 
     return {
       imported,
       totalInDatabase: total,
       requestsUsed: this.coletum.requestCount,
-      lastSyncedAt: toIsoOrNull(state.lastSyncedAt),
+      lastSyncedAt: toIsoOrNull(newLastSyncedAt),
     };
   }
 
@@ -82,7 +78,7 @@ class SuppliersService {
   async pullPartial() {
     this.coletum.resetRequestCount();
     const state = await this.getSyncState();
-    const totalInDatabase = await Supplier.countDocuments({ formId: this.formId });
+    const totalInDatabase = await SupplierRepository.countByFormId(this.formId);
 
     if (totalInDatabase === 0 || !state.lastSyncedAt) {
       return this.pullAll();
@@ -100,18 +96,19 @@ class SuppliersService {
       if (updatedDate && updatedDate > maxUpdatedAt) maxUpdatedAt = updatedDate;
     }
 
-    const total = await Supplier.countDocuments({ formId: this.formId });
-    state.lastSyncedAt = maxUpdatedAt;
-    state.totalRecords = total;
-    state.lastRunRequests = this.coletum.requestCount;
-    state.lastRunAt = new Date();
-    await state.save();
+    const total = await SupplierRepository.countByFormId(this.formId);
+    await SyncStateRepository.updateByFormId(this.formId, {
+      lastSyncedAt: maxUpdatedAt,
+      totalRecords: total,
+      lastRunRequests: this.coletum.requestCount,
+      lastRunAt: new Date(),
+    });
 
     return {
       imported,
       totalInDatabase: total,
       requestsUsed: this.coletum.requestCount,
-      lastSyncedAt: toIsoOrNull(state.lastSyncedAt),
+      lastSyncedAt: toIsoOrNull(maxUpdatedAt),
       strategy: "delta",
       updatedAfter,
     };
@@ -119,7 +116,7 @@ class SuppliersService {
 
   // Lista todos os fornecedores armazenados no banco.
   async listAllFromDatabase() {
-    const items = await Supplier.find({ formId: this.formId }).lean();
+    const items = await SupplierRepository.findAllByFormId(this.formId);
     return { total: items.length, data: items };
   }
 
@@ -127,12 +124,8 @@ class SuppliersService {
   async listPaginated({ page = 1, pageSize = 50 } = {}) {
     const skip = (page - 1) * pageSize;
     const [items, total] = await Promise.all([
-      Supplier.find({ formId: this.formId })
-        .sort({ "meta_data.updated_at": -1 })
-        .skip(skip)
-        .limit(pageSize)
-        .lean(),
-      Supplier.countDocuments({ formId: this.formId }),
+      SupplierRepository.findPaginatedByFormId(this.formId, { skip, limit: pageSize }),
+      SupplierRepository.countByFormId(this.formId),
     ]);
     return {
       data: items,
