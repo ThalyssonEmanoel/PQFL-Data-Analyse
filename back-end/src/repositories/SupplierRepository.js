@@ -12,14 +12,14 @@ class SupplierRepository {
     return Supplier.find({ formId }).lean();
   }
 
-  // Conta fornecedores por formulario.
-  static async countByFormId(formId) {
-    return Supplier.countDocuments({ formId });
+  // Conta fornecedores por formulario, opcionalmente filtrando.
+  static async countByFormId(formId, filters = {}) {
+    return Supplier.countDocuments({ formId, ...filters });
   }
 
   // Busca fornecedores paginados e ordenados por ultima atualizacao.
-  static async findPaginatedByFormId(formId, { skip = 0, limit = 50 } = {}) {
-    return Supplier.find({ formId })
+  static async findPaginatedByFormId(formId, { skip = 0, limit = 50, filters = {} } = {}) {
+    return Supplier.find({ formId, ...filters })
       .sort({ "meta_data.updated_at": -1 })
       .skip(skip)
       .limit(limit)

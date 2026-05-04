@@ -49,6 +49,22 @@ const SuppliersPath = {
           required: false,
           schema: { type: "integer", minimum: 1, maximum: 500, default: 50 },
         },
+        {
+          name: "id",
+          in: "query",
+          required: false,
+          description: "Filtra pelo _id do documento (ObjectId do MongoDB).",
+          schema: { type: "string", pattern: "^[0-9a-fA-F]{24}$" },
+          example: "69f8cafee1d7191c60896ade",
+        },
+        {
+          name: "nome",
+          in: "query",
+          required: false,
+          description: "Filtra por nome do fornecedor (answer._nome350925), case-insensitive.",
+          schema: { type: "string" },
+          example: "Eliane resena dos Santos",
+        },
       ],
       responses: {
         200: {

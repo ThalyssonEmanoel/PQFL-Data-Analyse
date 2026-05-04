@@ -29,7 +29,12 @@ class SuppliersController {
     try {
       const query = listSuppliersQuerySchema.parse(req.query);
       const service = new SuppliersService();
-      const result = await service.listPaginated({ page: query.page, pageSize: query.page_size });
+      const result = await service.listPaginated({
+        page: query.page,
+        pageSize: query.page_size,
+        id: query.id,
+        nome: query.nome,
+      });
       return res.status(HttpStatusCodes.OK.code).json(result);
     } catch (error) {
       const { status, body } = buildErrorPayload(error);

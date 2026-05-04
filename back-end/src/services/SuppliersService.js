@@ -6,6 +6,9 @@ import SyncStateRepository from "../repositories/SyncStateRepository.js";
 // Converte datas para ISO ou null quando ausentes.
 const toIsoOrNull = (value) => (value ? new Date(value).toISOString() : null);
 
+// Escapa caracteres especiais usados em regex para buscas textuais seguras.
+const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 // Monta o documento persistido no Mongo a partir da resposta do Coletum.
 const buildSupplierDoc = (entry, formId) => ({
   coletumId: entry.id,
@@ -121,11 +124,18 @@ class SuppliersService {
   }
 
   // Retorna fornecedores paginados com metadados de navegacao.
-  async listPaginated({ page = 1, pageSize = 50 } = {}) {
+  async listPaginated({ page = 1, pageSize = 50, id, nome } = {}) {
     const skip = (page - 1) * pageSize;
+    const filters = {};
+
+    if (id) filters._id = id;
+    if (nome) {
+      filters["answer._nome350925"] = { $regex: escapeRegex(nome), $options: "i" };
+    }
+
     const [items, total] = await Promise.all([
-      SupplierRepository.findPaginatedByFormId(this.formId, { skip, limit: pageSize }),
-      SupplierRepository.countByFormId(this.formId),
+      SupplierRepository.findPaginatedByFormId(this.formId, { skip, limit: pageSize, filters }),
+      SupplierRepository.countByFormId(this.formId, filters),
     ]);
     return {
       data: items,
