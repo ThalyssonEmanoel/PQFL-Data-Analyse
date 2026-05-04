@@ -1,0 +1,89 @@
+const tag = "SuppliersCalculated";
+
+const SuppliersCalculatedPath = {
+  "/suppliers-calculated/calculate": {
+    post: {
+      tags: [tag],
+      summary: "Calcular pontuacoes/classificacoes de TODOS os fornecedores",
+      description:
+        "Le todos os fornecedores presentes no Mongo (collection `suppliers`), executa o calculo BPA (scoring) e faz upsert incremental no banco `suppliers-calculated`. Nenhum registro existente e apagado.",
+      responses: {
+        200: {
+          description: "Calculo concluido.",
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  message: { type: "string", example: "Calculo concluido" },
+                  result: { $ref: "#/components/schemas/CalculateAllResult" },
+                },
+              },
+            },
+          },
+        },
+        500: { description: "Erro interno." },
+      },
+    },
+  },
+  "/suppliers-calculated": {
+    get: {
+      tags: [tag],
+      summary: "Listar fornecedores calculados (paginado)",
+      description:
+        "Retorna documentos da collection `suppliers-calculated` com paginacao e filtros opcionais. O filtro `nome` e aplicado sobre `producerName` (denormalizado a partir de `answer._nome350925` do payload original).",
+      parameters: [
+        {
+          name: "page",
+          in: "query",
+          required: false,
+          schema: { type: "integer", minimum: 1, default: 1 },
+        },
+        {
+          name: "page_size",
+          in: "query",
+          required: false,
+          schema: { type: "integer", minimum: 1, maximum: 500, default: 50 },
+        },
+        {
+          name: "_id",
+          in: "query",
+          required: false,
+          description: "Filtra pelo _id do documento (mesmo _id do fornecedor em `suppliers`).",
+          schema: { type: "string", pattern: "^[0-9a-fA-F]{24}$" },
+          example: "69f8cafee1d7191c60896ade",
+        },
+        {
+          name: "nome",
+          in: "query",
+          required: false,
+          description: "Filtra por nome (regex case-insensitive em producerName / answer._nome350925).",
+          schema: { type: "string" },
+          example: "Eliane",
+        },
+      ],
+      responses: {
+        200: {
+          description: "Pagina de fornecedores calculados.",
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  data: {
+                    type: "array",
+                    items: { $ref: "#/components/schemas/SupplierCalculated" },
+                  },
+                  pagination: { $ref: "#/components/schemas/Pagination" },
+                },
+              },
+            },
+          },
+        },
+        400: { description: "Parametros invalidos." },
+      },
+    },
+  },
+};
+
+export default SuppliersCalculatedPath;

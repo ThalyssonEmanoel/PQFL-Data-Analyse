@@ -2,8 +2,8 @@ import {
   BPA_CATEGORIES,
   PAE_ACTIONS,
   PBPA_ACTIONS_BY_CATEGORY,
-} from "@/lib/pqfl/domain/constants";
-import { mapAndScoreProducer } from "@/lib/pqfl/scoring";
+} from "./constants.js";
+import { mapAndScoreProducer } from "./scoring.js";
 
 const UNKNOWN_PERIOD_KEY = "sem-periodo";
 const UNKNOWN_PERIOD_LABEL = "Sem período informado";

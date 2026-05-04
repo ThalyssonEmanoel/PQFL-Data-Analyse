@@ -1,5 +1,7 @@
 import SuplliersPath from "../routes/SuppliersRoute.js";
 import SuplliersSchema from "./schemas/suppliersSchema.js";
+import SuppliersCalculatedPath from "../routes/SuppliersCalculatedRoute.js";
+import SuppliersCalculatedSchema from "./schemas/suppliersCalculatedSchema.js";
 
 // Function to define the server URLs depending on the environment
 const getServersInCorrectOrder = () => {
@@ -23,12 +25,17 @@ const getSwaggerOptions = () => {
       servers: getServersInCorrectOrder(),
       tags: [
         {
-          name: "Supliers",
-          description: "Supliers route."
+          name: "Suppliers",
+          description: "Sincronizacao com Coletum e leitura de fornecedores."
+        },
+        {
+          name: "SuppliersCalculated",
+          description: "Calculo BPA (PQFL) e leitura dos fornecedores classificados."
         }
       ],
       paths: {
         ...SuplliersPath,
+        ...SuppliersCalculatedPath,
       },
       components: {
         securitySchemes: {
@@ -40,6 +47,7 @@ const getSwaggerOptions = () => {
         },
         schemas: {
             ...SuplliersSchema,
+            ...SuppliersCalculatedSchema,
         }
       },
       security: [{

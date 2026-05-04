@@ -8,7 +8,7 @@ import {
   OFFICIAL_FACTOR_FIELDS,
   PAE_ACTIONS,
   PBPA_ACTIONS_BY_CATEGORY,
-} from "@/lib/pqfl/domain/constants";
+} from "./constants.js";
 
 const POSITIVE_ANSWERS = new Set([
   "sim",
