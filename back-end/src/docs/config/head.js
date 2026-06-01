@@ -2,6 +2,8 @@ import SuplliersPath from "../routes/SuppliersRoute.js";
 import SuplliersSchema from "./schemas/suppliersSchema.js";
 import SuppliersCalculatedPath from "../routes/SuppliersCalculatedRoute.js";
 import SuppliersCalculatedSchema from "./schemas/suppliersCalculatedSchema.js";
+import AuthPath from "../routes/AuthRoute.js";
+import AuthSchema from "./schemas/authSchema.js";
 
 // Function to define the server URLs depending on the environment
 const getServersInCorrectOrder = () => {
@@ -25,6 +27,14 @@ const getSwaggerOptions = () => {
       servers: getServersInCorrectOrder(),
       tags: [
         {
+          name: "Auth",
+          description: "Autenticacao, autorizacao e ciclo de e-mail (login, refresh, reset, etc.)."
+        },
+        {
+          name: "System",
+          description: "Saude e operacao da API."
+        },
+        {
           name: "Suppliers",
           description: "Sincronizacao com Coletum e leitura de fornecedores."
         },
@@ -34,6 +44,34 @@ const getSwaggerOptions = () => {
         }
       ],
       paths: {
+        ...AuthPath,
+        "/health": {
+          get: {
+            tags: ["System"],
+            summary: "Health check (sem autenticacao)",
+            description: "Retorna o status da API e de suas dependencias (Mongo e Redis).",
+            security: [],
+            responses: {
+              200: {
+                description: "Servico saudavel.",
+                content: {
+                  "application/json": {
+                    schema: {
+                      type: "object",
+                      properties: {
+                        status: { type: "string", example: "ok" },
+                        db: { type: "string", example: "up" },
+                        redis: { type: "string", example: "disabled" },
+                        uptime: { type: "number", example: 123.45 },
+                      },
+                    },
+                  },
+                },
+              },
+              503: { description: "Alguma dependencia critica esta indisponivel." },
+            },
+          },
+        },
         ...SuplliersPath,
         ...SuppliersCalculatedPath,
       },
@@ -46,6 +84,7 @@ const getSwaggerOptions = () => {
           }
         },
         schemas: {
+            ...AuthSchema,
             ...SuplliersSchema,
             ...SuppliersCalculatedSchema,
         }

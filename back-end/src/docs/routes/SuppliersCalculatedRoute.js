@@ -6,7 +6,9 @@ const SuppliersCalculatedPath = {
       tags: [tag],
       summary: "Calcular pontuacoes/classificacoes de TODOS os fornecedores",
       description:
+        "**Permissao:** admin (operacao de escrita pesada). " +
         "Le todos os fornecedores presentes no Mongo (collection `suppliers`), executa o calculo BPA (scoring) e faz upsert incremental no banco `suppliers-calculated`. Nenhum registro existente e apagado.",
+      security: [{ bearerAuth: [] }],
       responses: {
         200: {
           description: "Calculo concluido.",
@@ -22,6 +24,8 @@ const SuppliersCalculatedPath = {
             },
           },
         },
+        401: { description: "Nao autenticado." },
+        403: { description: "Sem permissao (requer admin)." },
         500: { description: "Erro interno." },
       },
     },
@@ -31,6 +35,7 @@ const SuppliersCalculatedPath = {
       tags: [tag],
       summary: "Listar fornecedores calculados (paginado)",
       description:
+        "**Permissao:** admin ou member (somente leitura). " +
         "Retorna documentos da collection `suppliers-calculated` com paginacao e filtros opcionais. O filtro `nome` e aplicado sobre `producerName` (denormalizado a partir de `answer._nome350925` do payload original).",
       parameters: [
         {
@@ -81,6 +86,7 @@ const SuppliersCalculatedPath = {
           },
         },
         400: { description: "Parametros invalidos." },
+        401: { description: "Nao autenticado." },
       },
     },
   },

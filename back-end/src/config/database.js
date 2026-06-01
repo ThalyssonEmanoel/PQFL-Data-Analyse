@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import logger from "./logger.js";
 
 const resolveMongoUri = () => {
   const env = process.env.NODE_ENV || "development";
@@ -18,9 +19,15 @@ export const connectDatabase = async () => {
   }
 
   mongoose.set("strictQuery", true);
-  await mongoose.connect(uri, { serverSelectionTimeoutMS: 10_000 });
 
-  console.log(`MongoDB conectado em: ${uri.replace(/\/\/[^@]+@/, "//***@")}`);
+  // Opcoes de producao (secao 8.4): pool e read preference ajustaveis por env.
+  const options = { serverSelectionTimeoutMS: 10_000 };
+  if (process.env.MONGO_MAX_POOL_SIZE) options.maxPoolSize = Number(process.env.MONGO_MAX_POOL_SIZE);
+  if (process.env.MONGO_READ_PREFERENCE) options.readPreference = process.env.MONGO_READ_PREFERENCE;
+
+  await mongoose.connect(uri, options);
+
+  logger.info(`MongoDB conectado em: ${uri.replace(/\/\/[^@]+@/, "//***@")}`);
   return mongoose.connection;
 };
 

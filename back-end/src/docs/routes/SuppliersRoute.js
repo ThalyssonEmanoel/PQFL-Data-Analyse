@@ -9,7 +9,9 @@ const SuppliersPath = {
       tags: [tag],
       summary: "Listar todos os fornecedores (com sincronização automática)",
       description:
+        "**Permissão:** admin (fala com o Coletum). " +
         "Se o banco estiver vazio, executa um pull completo do Coletum (até 4 requisições). Caso contrário, executa um pull incremental usando `updated_after` antes de retornar todos os registros.",
+      security: [{ bearerAuth: [] }],
       responses: {
         200: {
           description: "Lista completa de fornecedores acompanhada do resumo da sincronização.",
@@ -26,6 +28,8 @@ const SuppliersPath = {
             },
           },
         },
+        401: { description: "Não autenticado (accessToken ausente/inválido)." },
+        403: { description: "Sem permissão (requer admin)." },
         429: { description: "Cota mensal do Coletum esgotada." },
         500: { description: "Erro interno." },
       },
@@ -35,7 +39,9 @@ const SuppliersPath = {
     get: {
       tags: [tag],
       summary: "Listar fornecedores paginados (somente do banco local)",
-      description: "Retorna apenas registros já presentes no MongoDB, sem chamar o Coletum.",
+      description:
+        "**Permissão:** admin ou member (apenas leitura do banco, não chama o Coletum). " +
+        "Retorna apenas registros já presentes no MongoDB.",
       parameters: [
         {
           name: "page",
@@ -82,6 +88,7 @@ const SuppliersPath = {
           },
         },
         400: { description: "Parâmetros inválidos." },
+        401: { description: "Não autenticado." },
       },
     },
   },
@@ -90,7 +97,9 @@ const SuppliersPath = {
       tags: [tag],
       summary: "Forçar sincronização completa com o Coletum",
       description:
+        "**Permissão:** admin (fala com o Coletum). " +
         "Ignora o estado de sincronização e busca todas as páginas do formulário (limitado a 4 requisições por execução).",
+      security: [{ bearerAuth: [] }],
       responses: {
         200: {
           description: "Sincronização concluída.",
@@ -106,6 +115,8 @@ const SuppliersPath = {
             },
           },
         },
+        401: { description: "Não autenticado." },
+        403: { description: "Sem permissão (requer admin)." },
         429: { description: "Cota mensal do Coletum esgotada." },
       },
     },
@@ -115,7 +126,9 @@ const SuppliersPath = {
       tags: [tag],
       summary: "Sincronização incremental (Delta Sync)",
       description:
+        "**Permissão:** admin (fala com o Coletum). " +
         "Usa o último `lastSyncedAt` como `updated_after` na chamada ao Coletum. Se o banco estiver vazio, executa um pull completo automaticamente.",
+      security: [{ bearerAuth: [] }],
       responses: {
         200: {
           description: "Sincronização incremental concluída.",
@@ -131,6 +144,8 @@ const SuppliersPath = {
             },
           },
         },
+        401: { description: "Não autenticado." },
+        403: { description: "Sem permissão (requer admin)." },
         429: { description: "Cota mensal do Coletum esgotada." },
       },
     },

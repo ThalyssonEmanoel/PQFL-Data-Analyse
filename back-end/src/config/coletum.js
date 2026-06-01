@@ -8,7 +8,7 @@ export const coletumConfig = {
   formId: required("COLETUM_FORM_ID", process.env.COLETUM_FORM_ID),
   token: required("COLETUM_TOKEN", process.env.COLETUM_TOKEN),
   pageSize: 500,
-  maxRequestsPerRun: 4,
+  maxRequestsPerRun: Number(process.env.COLETUM_MAX_REQUESTS_PER_RUN) || 4,
 };
 
 export default coletumConfig;
