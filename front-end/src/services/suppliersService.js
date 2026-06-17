@@ -32,6 +32,16 @@ const suppliersService = {
     return { data: all, pagination };
   },
 
+  // GET /suppliers-calculated/periods — historico de periodos de um produtor.
+  // Retorna { producerId, producerName, supported, latestPeriodKey, periods, snapshots }.
+  // `supported` so e true quando ha 2+ periodos comparaveis.
+  async getProducerPeriods(producerId) {
+    const { data } = await http.get("/suppliers-calculated/periods", {
+      params: { producerId },
+    });
+    return data;
+  },
+
   // GET /suppliers — fornecedores brutos (respostas originais do Coletum).
   async listSuppliers({ page = 1, pageSize = 50, id, nome } = {}) {
     const params = { page, page_size: pageSize };

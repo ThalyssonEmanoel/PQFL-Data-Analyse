@@ -9,11 +9,17 @@ const props = defineProps({
   suffix: { type: String, default: "" },
 });
 
+// Largura minima (em %) para que barras com valores muito pequenos continuem visiveis.
+const MIN_VISIBLE_PCT = 3;
+
 const rows = computed(() =>
   props.items.map((it) => {
     const max = it.max ?? props.max;
-    const pct = max ? Math.max(0, Math.min(100, ((it.value || 0) / max) * 100)) : 0;
-    return { ...it, pct };
+    const value = it.value || 0;
+    const pct = max ? Math.max(0, Math.min(100, (value / max) * 100)) : 0;
+    // Barras com valor > 0 mas fracao minuscula recebem uma largura minima visivel.
+    const displayPct = value > 0 ? Math.max(pct, MIN_VISIBLE_PCT) : pct;
+    return { ...it, pct: displayPct };
   })
 );
 </script>

@@ -1,11 +1,2 @@
 # Pedências 
-
-- Na parte de Produtores, onde é possível observar cada produtor individualmente, está faltando a parte de comparar os dados dos produtores do último período registrado e selecionar outros períodoso existentes(obs: só deverá existir essa opção se o back-end souber
-lidar com esse detalhe).
-- Quando adentra a tela principal, os dados só aparecem quando aperta no botão "atualizar", os dados deverão aparecer já quando o usuário adentrar na tela;
-- o gráfico em pizza da tela "visão geral", não mostra as 3 informações, atualmente ele está com 3 categorias nas seguintes porcentagens:
-G1 — (1%)
-G2 — (63%)
-G3 — (37%)
-
-Não é possível visualizar o G1 com claridade, pois ele está tão pequeno que só o G2 E G3 aparecem, tentar deixá-lo mais vísivel. 
+- Faça o que for pedido abaixo primeiro e depois disso, no front-end, na tela principal existe o modal "Distribuição por grupo" aonde existe o gráfico e ao lado desse gráfico uma legenda de o que cada coluna do gráfico significa, quero que o usuário consiga clicar nessa informações no gráfico e que abaixo dele apeeça uma lista de "Todas ações padrões por categoria", ou seja, quero que mostre todas as ações que existem em cada grupo, g1,g2 e g3, isso é apenas para que o usuário consiga ver todos as atividades podem exister para cada usuário, pois ao entrar nos usuário em específicos, eles terão ações específicas para eles naquele grupo, pois ele tem cenários e cenários específicos e n necessariamente eles terão que fazer tudo aquilo que está presente na descrição do grupo...

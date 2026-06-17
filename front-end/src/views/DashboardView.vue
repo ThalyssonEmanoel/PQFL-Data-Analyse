@@ -84,6 +84,9 @@ const lastLabel = computed(() => {
   if (!lastCalculatedAt.value) return "";
   return new Date(lastCalculatedAt.value).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
 });
+
+// Carrega os indicadores automaticamente ao entrar na tela (sem exigir clique em "Atualizar").
+onMounted(load);
 </script>
 
 <template>

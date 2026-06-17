@@ -11,20 +11,33 @@ const props = defineProps({
   centerValue: { type: [String, Number], default: "" },
 });
 
+// Fracao minima de arco para que segmentos pequenos (ex.: G1 com 1%) continuem visiveis.
+const MIN_VISIBLE_FRACTION = 0.05;
+
 const total = computed(() => props.segments.reduce((s, x) => s + (x.value || 0), 0));
 const radius = computed(() => (props.size - props.thickness) / 2);
 const circumference = computed(() => 2 * Math.PI * radius.value);
 
 // Pre-calcula o dash/offset de cada arco a partir da fracao acumulada.
+// Segmentos pequenos recebem uma fracao minima de desenho para nao "sumirem" no anel;
+// os valores reais sao preservados para a legenda (que usa props.segments diretamente).
 const arcs = computed(() => {
-  let acc = 0;
   const c = circumference.value;
-  return props.segments.map((seg) => {
-    const fraction = total.value ? (seg.value || 0) / total.value : 0;
+  const segments = props.segments;
+  if (!total.value) return [];
+
+  const rawFractions = segments.map((seg) => (seg.value || 0) / total.value);
+  const boosted = rawFractions.map((f) => (f > 0 ? Math.max(f, MIN_VISIBLE_FRACTION) : 0));
+  const boostedTotal = boosted.reduce((s, f) => s + f, 0) || 1;
+
+  let acc = 0;
+  return segments.map((seg, i) => {
+    const fraction = boosted[i] / boostedTotal; // renormaliza para o anel fechar em 100%
     const dash = fraction * c;
     const arc = {
       ...seg,
       fraction,
+      realFraction: rawFractions[i],
       dashArray: `${dash} ${c - dash}`,
       dashOffset: -acc * c,
     };
@@ -52,7 +65,7 @@ const cx = computed(() => props.size / 2);
           :stroke-width="thickness"
           :stroke-dasharray="arc.dashArray"
           :stroke-dashoffset="arc.dashOffset"
-          stroke-linecap="round"
+          stroke-linecap="butt"
           class="arc"
         />
       </g>

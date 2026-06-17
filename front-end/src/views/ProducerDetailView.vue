@@ -13,6 +13,7 @@ import EmptyState from "@/components/ui/EmptyState.vue";
 import GroupBadge from "@/components/ui/GroupBadge.vue";
 import ScoreGauge from "@/components/charts/ScoreGauge.vue";
 import BarChart from "@/components/charts/BarChart.vue";
+import PeriodComparisonPanel from "@/components/produtor/PeriodComparisonPanel.vue";
 
 const route = useRoute();
 const router = useRouter();
@@ -20,6 +21,7 @@ const router = useRouter();
 const loading = ref(true);
 const error = ref("");
 const producer = ref(null);
+const periodHistory = ref(null);
 
 async function load() {
   loading.value = true;
@@ -27,11 +29,28 @@ async function load() {
   try {
     const res = await suppliersService.listCalculated({ id: route.params.id, pageSize: 1 });
     producer.value = (res.data || [])[0] || null;
-    if (!producer.value) error.value = "Produtor não encontrado.";
+    if (!producer.value) {
+      error.value = "Produtor não encontrado.";
+    } else {
+      // Busca o historico de periodos; a comparacao so aparece se o back-end suportar (2+ periodos).
+      loadPeriods(producer.value.producerId);
+    }
   } catch (e) {
     error.value = extractApiError(e).message;
   } finally {
     loading.value = false;
+  }
+}
+
+// Carrega o historico de periodos em segundo plano (nao bloqueia o restante da tela).
+async function loadPeriods(producerId) {
+  periodHistory.value = null;
+  if (!producerId) return;
+  try {
+    const data = await suppliersService.getProducerPeriods(producerId);
+    periodHistory.value = data?.supported ? data : null;
+  } catch {
+    periodHistory.value = null; // falha aqui nao deve quebrar a tela do produtor
   }
 }
 
@@ -186,6 +205,19 @@ const diagnostics = computed(() =>
           </div>
         </BaseCard>
       </div>
+
+      <!-- Comparacao por periodo (so quando o back-end tem 2+ periodos registrados) -->
+      <BaseCard
+        v-if="periodHistory"
+        title="Comparação por período"
+        subtitle="Compare o último período registrado com períodos anteriores"
+      >
+        <PeriodComparisonPanel
+          :periods="periodHistory.periods"
+          :snapshots="periodHistory.snapshots"
+          :latest-period-key="periodHistory.latestPeriodKey"
+        />
+      </BaseCard>
 
       <!-- PBPA -->
       <BaseCard
