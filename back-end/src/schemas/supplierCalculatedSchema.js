@@ -25,4 +25,13 @@ export const listCalculatedQuerySchema = z.object({
   nome: optionalTrimmedString,
 });
 
-export default { listCalculatedQuerySchema };
+const requiredTrimmedString = z.preprocess(
+  (value) => (typeof value === "string" ? value.trim() : value),
+  z.string().min(1)
+);
+
+export const producerPeriodsQuerySchema = z.object({
+  producerId: requiredTrimmedString,
+});
+
+export default { listCalculatedQuerySchema, producerPeriodsQuerySchema };

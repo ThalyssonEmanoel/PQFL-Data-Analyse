@@ -23,7 +23,7 @@ Cada categoria tem um peso oficial (somam 100 pontos):
 - Uso racional e estocagem de produtos químicos (6%)
 - Manejo de resíduos (5%)
 - Manutenção preventiva (3%)
-- Capacitação e controle de pragas (3%)
+- Capacitação e controle de pragas (3%)###Observar o documento Anotações-5.md
 
 2.2) Campos oficiais por categoria (OFFICIAL_FACTOR_FIELDS)
 Esses campos são considerados prioritários para diagnóstico e conformidade. Para cada item abaixo, o sistema procura uma das chaves indicadas (keys) no payload bruto do Coletum.

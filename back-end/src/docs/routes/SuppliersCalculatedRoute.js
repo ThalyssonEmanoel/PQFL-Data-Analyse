@@ -30,6 +30,39 @@ const SuppliersCalculatedPath = {
       },
     },
   },
+  "/suppliers-calculated/periods": {
+    get: {
+      tags: [tag],
+      summary: "Historico de periodos de um produtor (comparacao entre periodos)",
+      description:
+        "**Permissao:** admin ou member (somente leitura). " +
+        "Reconstroi, a partir dos envios brutos (collection `suppliers`), os periodos em que o produtor possui dados, ja pontuados. " +
+        "O campo `supported` indica se ha 2 ou mais periodos comparaveis — o front-end so deve oferecer a comparacao por periodo quando `supported = true`.",
+      security: [{ bearerAuth: [] }],
+      parameters: [
+        {
+          name: "producerId",
+          in: "query",
+          required: true,
+          description: "Identificador do produtor (campo `producerId` retornado em `suppliers-calculated`).",
+          schema: { type: "string" },
+          example: "12345",
+        },
+      ],
+      responses: {
+        200: {
+          description: "Historico de periodos do produtor.",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ProducerPeriodHistory" },
+            },
+          },
+        },
+        400: { description: "Parametros invalidos (producerId ausente)." },
+        401: { description: "Nao autenticado." },
+      },
+    },
+  },
   "/suppliers-calculated": {
     get: {
       tags: [tag],

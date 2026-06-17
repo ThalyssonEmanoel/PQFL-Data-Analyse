@@ -1,6 +1,7 @@
 import SupplierRepository from "../repositories/SupplierRepository.js";
 import SupplierCalculatedRepository from "../repositories/SupplierCalculatedRepository.js";
 import { mapAndScoreProducer } from "./Categorize/scoring.js";
+import { buildProducerPeriodDataset } from "./Categorize/period-dataset.js";
 import coletumConfig from "../config/coletum.js";
 
 // Escapa caracteres especiais usados em regex para buscas textuais seguras.
@@ -87,6 +88,73 @@ class CategorizeService {
         total_pages: Math.max(1, Math.ceil(total / pageSize)),
         has_next: skip + items.length < total,
       },
+    };
+  }
+
+  // Reconstroi o historico de periodos de um produtor a partir dos envios brutos
+  // (collection "suppliers"), inferindo o periodo de cada submissao. Permite que o
+  // front-end compare o periodo mais recente com periodos anteriores.
+  //
+  // `supported` indica se ha mais de um periodo comparavel: somente nesse caso o
+  // front-end deve oferecer a opcao de comparacao por periodo.
+  async getProducerPeriodHistory(producerId) {
+    const suppliers = await SupplierRepository.findAllByFormId(this.formId);
+    const dataset = buildProducerPeriodDataset(suppliers.map((s) => s.answer ?? {}));
+
+    const snapshots = dataset.byProducerId[producerId] ?? [];
+
+    if (!snapshots.length) {
+      return {
+        producerId,
+        producerName: null,
+        supported: false,
+        latestPeriodKey: null,
+        periods: [],
+        snapshots: {},
+      };
+    }
+
+    // Periodos deste produtor, do mais recente para o mais antigo.
+    const periodsMap = new Map();
+    for (const snap of snapshots) {
+      if (!periodsMap.has(snap.periodKey)) {
+        periodsMap.set(snap.periodKey, {
+          key: snap.periodKey,
+          label: snap.periodLabel,
+          sortOrder: snap.periodSortOrder,
+        });
+      }
+    }
+    const periods = Array.from(periodsMap.values()).sort((a, b) => b.sortOrder - a.sortOrder);
+
+    // Um snapshot (ja deduplicado) por periodo, com os dados ja pontuados.
+    const byPeriod = {};
+    for (const snap of snapshots) {
+      const p = snap.producer;
+      byPeriod[snap.periodKey] = {
+        periodKey: snap.periodKey,
+        periodLabel: snap.periodLabel,
+        recordedAt: snap.recordedAt,
+        producerName: p.producerName,
+        totalScore: p.totalScore,
+        group: p.group,
+        categoryScores: p.categoryScores,
+        metrics: p.metrics,
+        actions: p.actions,
+      };
+    }
+
+    const latestPeriodKey = periods[0]?.key ?? null;
+    const producerName = byPeriod[latestPeriodKey]?.producerName ?? null;
+
+    return {
+      producerId,
+      producerName,
+      // Comparacao so faz sentido (e so deve aparecer no front) com 2+ periodos reais.
+      supported: periods.length > 1,
+      latestPeriodKey,
+      periods,
+      snapshots: byPeriod,
     };
   }
 }
