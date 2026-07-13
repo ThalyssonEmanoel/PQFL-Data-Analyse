@@ -16,11 +16,56 @@ const SuppliersCalculatedSchema = {
     properties: {
       key: { type: "string" },
       label: { type: "string" },
-      conformity: { type: "number" },
+      conformity: { type: "number", description: "Conformidade da categoria (0..1)." },
       gap: { type: "number" },
       checkedFields: { type: "array", items: { type: "string" } },
       failedFields: { type: "array", items: { type: "string" } },
       failedFieldLabels: { type: "array", items: { type: "string" } },
+      definedCount: {
+        type: "integer",
+        description: "Qtde de perguntas oficiais S/N definidas para a categoria.",
+      },
+      foundCount: {
+        type: "integer",
+        description: "Qtde dessas perguntas efetivamente encontradas no payload do Coletum.",
+      },
+      missingFields: {
+        type: "array",
+        items: { type: "string" },
+        description: "Perguntas oficiais nao encontradas no payload deste fornecedor.",
+      },
+      fields: {
+        type: "array",
+        description: "Detalhamento por pergunta oficial da categoria (para expandir no front).",
+        items: { $ref: "#/components/schemas/DiagnosticField" },
+      },
+    },
+  },
+  DiagnosticField: {
+    type: "object",
+    description: "Pergunta oficial (item do checklist) de uma categoria e sua conformidade.",
+    properties: {
+      questionId: { type: "string", nullable: true, example: "3.2" },
+      label: { type: "string", example: "3.2 Possui calendário sanitário?" },
+      fieldName: { type: "string", nullable: true },
+      imprescindivel: {
+        type: "boolean",
+        description: "Item marcado como TIPO 'I' (Imprescindível) no Manual MAPA.",
+      },
+      found: { type: "boolean", description: "Campo encontrado no payload do Coletum." },
+      conforming: { type: "boolean", description: "Resposta conforme (Sim)." },
+    },
+  },
+  OfficialFieldsCoverage: {
+    type: "object",
+    description:
+      "Comparacao por categoria entre as perguntas oficiais esperadas e os campos presentes no formulario do Coletum.",
+    properties: {
+      key: { type: "string", example: "manejoSanitario" },
+      label: { type: "string", example: "Manejo sanitário" },
+      definedCount: { type: "integer", example: 8 },
+      foundCount: { type: "integer", example: 8 },
+      missingFields: { type: "array", items: { type: "string" } },
     },
   },
   CalculatedActions: {
@@ -49,6 +94,8 @@ const SuppliersCalculatedSchema = {
       totalScore: { type: "number" },
       categoryScores: {
         type: "object",
+        description:
+          "Mapa key -> pontuacao por categoria. Sao 14 categorias oficiais BPA (itens I a XIV do Manual PQFL/MAPA).",
         additionalProperties: { $ref: "#/components/schemas/CategoryScore" },
       },
       actions: { $ref: "#/components/schemas/CalculatedActions" },
@@ -58,6 +105,11 @@ const SuppliersCalculatedSchema = {
           cpp: { type: "number", nullable: true },
           hasResidue: { type: "boolean" },
         },
+      },
+      officialFieldsCoverage: {
+        type: "array",
+        description: "Cobertura por categoria dos campos oficiais x campos presentes no Coletum.",
+        items: { $ref: "#/components/schemas/OfficialFieldsCoverage" },
       },
       unmappedScoredFields: { type: "array", items: { type: "string" } },
       calculatedAt: { type: "string", format: "date-time" },

@@ -16,6 +16,19 @@ const CategoryScoreSchema = new Schema(
   { _id: false }
 );
 
+// Detalhamento por campo oficial (pergunta do checklist) dentro de uma categoria.
+const DiagnosticFieldSchema = new Schema(
+  {
+    questionId: { type: String, default: null },
+    label: { type: String, required: true },
+    fieldName: { type: String, default: null },
+    imprescindivel: { type: Boolean, default: false },
+    found: { type: Boolean, default: false },
+    conforming: { type: Boolean, default: false },
+  },
+  { _id: false }
+);
+
 // Diagnostico oficial de campos por categoria.
 const FactorDiagnosticSchema = new Schema(
   {
@@ -26,6 +39,22 @@ const FactorDiagnosticSchema = new Schema(
     checkedFields: { type: [String], default: [] },
     failedFields: { type: [String], default: [] },
     failedFieldLabels: { type: [String], default: [] },
+    definedCount: { type: Number, default: 0 },
+    foundCount: { type: Number, default: 0 },
+    missingFields: { type: [String], default: [] },
+    fields: { type: [DiagnosticFieldSchema], default: [] },
+  },
+  { _id: false }
+);
+
+// Cobertura de campos oficiais (comparacao com os campos presentes no Coletum).
+const OfficialFieldsCoverageSchema = new Schema(
+  {
+    key: { type: String, required: true },
+    label: { type: String, required: true },
+    definedCount: { type: Number, default: 0 },
+    foundCount: { type: Number, default: 0 },
+    missingFields: { type: [String], default: [] },
   },
   { _id: false }
 );
@@ -65,6 +94,7 @@ const SupplierCalculatedSchema = new Schema(
       ),
       default: () => ({}),
     },
+    officialFieldsCoverage: { type: [OfficialFieldsCoverageSchema], default: [] },
     unmappedScoredFields: { type: [String], default: [] },
     calculatedAt: { type: Date, default: Date.now },
   },

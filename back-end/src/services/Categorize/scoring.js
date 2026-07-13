@@ -259,12 +259,25 @@ function buildFactorDiagnostics(flatPayload, normalizedIndex) {
     const checkedFields = [];
     const failedFields = [];
     const failedFieldLabels = [];
+    const missingFields = [];
+    // Detalhamento por campo: usado pelo front para listar os itens de cada categoria
+    // e indicar quais estao conformes.
+    const fieldsDetail = [];
     let conformingItems = 0;
+    let foundItems = 0;
 
     for (const fieldDef of fields) {
       const matchedField = findFieldByCandidates(flatPayload, normalizedIndex, fieldDef.keys);
       const fieldName = matchedField?.fieldName ?? fieldDef.keys[0] ?? fieldDef.label;
       checkedFields.push(fieldName);
+
+      // Registra se a pergunta oficial foi de fato encontrada no payload do Coletum.
+      const found = Boolean(matchedField);
+      if (found) {
+        foundItems += 1;
+      } else {
+        missingFields.push(fieldDef.label);
+      }
 
       const isConforming = normalizeBooleanAnswer(matchedField?.value);
       if (isConforming) {
@@ -273,6 +286,15 @@ function buildFactorDiagnostics(flatPayload, normalizedIndex) {
         failedFields.push(fieldName);
         failedFieldLabels.push(fieldDef.label);
       }
+
+      fieldsDetail.push({
+        questionId: fieldDef.questionId ?? null,
+        label: fieldDef.label,
+        fieldName,
+        imprescindivel: Boolean(fieldDef.imprescindivel),
+        found,
+        conforming: isConforming,
+      });
     }
 
     const conformity = fields.length ? conformingItems / fields.length : 0;
@@ -284,6 +306,10 @@ function buildFactorDiagnostics(flatPayload, normalizedIndex) {
       checkedFields,
       failedFields,
       failedFieldLabels,
+      definedCount: fields.length,
+      foundCount: foundItems,
+      missingFields,
+      fields: fieldsDetail,
     });
   }
 
@@ -595,6 +621,27 @@ function classifyProducer(totalScore) {
   return "G3";
 }
 
+// Deriva o peso de cada categoria proporcionalmente ao numero de campos oficiais
+// (perguntas S/N com campo no Coletum) mapeados nela, normalizando para somar 100.
+// Mantem o calculo consistente mesmo quando o mapeamento de OFFICIAL_FACTOR_FIELDS
+// muda, sem depender dos pesos informativos de BPA_CATEGORIES.
+function buildCategoryWeights() {
+  const counts = {};
+  let total = 0;
+  for (const category of BPA_CATEGORIES) {
+    const count = (OFFICIAL_FACTOR_FIELDS[category.key] ?? []).length;
+    counts[category.key] = count;
+    total += count;
+  }
+
+  const weights = {};
+  for (const category of BPA_CATEGORIES) {
+    weights[category.key] = total > 0 ? round((counts[category.key] / total) * 100, 2) : category.weight;
+  }
+
+  return weights;
+}
+
 export function mapAndScoreProducer(rawPayload, customOptions = {}) {
   const options = {
     lowScoreThreshold: customOptions.lowScoreThreshold ?? 0.5,
@@ -638,6 +685,7 @@ export function mapAndScoreProducer(rawPayload, customOptions = {}) {
   }
 
   const categoryScores = {};
+  const categoryWeights = buildCategoryWeights();
   let totalScore = 0;
 
   for (const category of BPA_CATEGORIES) {
@@ -656,14 +704,15 @@ export function mapAndScoreProducer(rawPayload, customOptions = {}) {
       ? officialDiagnostic?.checkedFields ?? []
       : fieldBuckets[category.key];
 
-    const weightedScore = rawScore * category.weight;
+    const weight = categoryWeights[category.key];
+    const weightedScore = rawScore * weight;
 
     totalScore += weightedScore;
 
     categoryScores[category.key] = {
       key: category.key,
       label: category.label,
-      weight: category.weight,
+      weight,
       rawScore: round(rawScore, 4),
       weightedScore: round(weightedScore, 2),
       questionCount,
@@ -723,6 +772,16 @@ export function mapAndScoreProducer(rawPayload, customOptions = {}) {
     ...(hasResidue ? PAE_ACTIONS.residuos : []),
   ]);
 
+  // Cobertura de campos oficiais por categoria: quantos campos S/N esperados
+  // foram realmente encontrados no payload do Coletum (comparacao campo x Coletum).
+  const officialFieldsCoverage = factorDiagnostics.map((diagnostic) => ({
+    key: diagnostic.key,
+    label: diagnostic.label,
+    definedCount: diagnostic.definedCount,
+    foundCount: diagnostic.foundCount,
+    missingFields: diagnostic.missingFields,
+  }));
+
   return {
     producerId,
     producerName,
@@ -741,6 +800,7 @@ export function mapAndScoreProducer(rawPayload, customOptions = {}) {
       cpp,
       hasResidue,
     },
+    officialFieldsCoverage,
     unmappedScoredFields,
     rawPayload,
   };

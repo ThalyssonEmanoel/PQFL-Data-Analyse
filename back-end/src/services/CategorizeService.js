@@ -26,6 +26,7 @@ const buildCalculatedDoc = (supplier, scoreResult) => ({
   categoryScores: scoreResult.categoryScores,
   actions: scoreResult.actions,
   metrics: scoreResult.metrics,
+  officialFieldsCoverage: scoreResult.officialFieldsCoverage ?? [],
   unmappedScoredFields: scoreResult.unmappedScoredFields ?? [],
   calculatedAt: new Date(),
 });

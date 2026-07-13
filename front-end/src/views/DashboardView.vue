@@ -3,7 +3,7 @@ import { ref, computed, onMounted } from "vue";
 import suppliersService from "@/services/suppliersService.js";
 import { extractApiError } from "@/services/http.js";
 import { buildDashboardStats, extractPaeList } from "@/utils/aggregations.js";
-import { groupMeta } from "@/constants/bpa.js";
+import { groupMeta, buildGroupActionCatalog } from "@/constants/bpa.js";
 import { formatNumber, formatScore } from "@/utils/format.js";
 import { useAuthStore } from "@/stores/auth.js";
 import { useToast } from "@/composables/useToast.js";
@@ -32,11 +32,34 @@ const paeList = computed(() => extractPaeList(items.value));
 // Segmentos do donut (distribuicao por grupo).
 const donutSegments = computed(() =>
   stats.value.groupDistribution.map((g) => ({
+    group: g.group,
     label: groupMeta(g.group).short,
     value: g.count,
     color: groupMeta(g.group).color,
   }))
 );
+
+// Grupo selecionado (clique no grafico/legenda) para exibir o catalogo de acoes padrao.
+const selectedGroup = ref(null);
+
+// Indice do segmento selecionado no donut (para destaque visual).
+const selectedGroupIndex = computed(() =>
+  selectedGroup.value ? donutSegments.value.findIndex((s) => s.group === selectedGroup.value) : -1
+);
+
+// Catalogo de acoes padrao do grupo selecionado, agrupado por categoria.
+const groupCatalog = computed(() =>
+  selectedGroup.value ? buildGroupActionCatalog(selectedGroup.value, items.value) : null
+);
+
+// Alterna a selecao do grupo (clicar novamente fecha o catalogo).
+function selectGroup(group) {
+  selectedGroup.value = selectedGroup.value === group ? null : group;
+}
+
+function onDonutSelect({ segment }) {
+  if (segment?.group) selectGroup(segment.group);
+}
 
 // Barras de media por categoria (0..100%).
 const categoryBars = computed(() =>
@@ -157,11 +180,29 @@ onMounted(load);
 
       <!-- Distribuicao + categorias -->
       <div class="grid grid-2">
-        <BaseCard title="Distribuição por grupo" subtitle="Classificação G1 / G2 / G3">
+        <BaseCard title="Distribuição por grupo" subtitle="Clique em um grupo para ver as ações padrão (G1 / G2 / G3)">
           <div class="dist">
-            <DonutChart :segments="donutSegments" :center-value="formatNumber(stats.total)" center-label="produtores" />
+            <DonutChart
+              :segments="donutSegments"
+              :center-value="formatNumber(stats.total)"
+              center-label="produtores"
+              clickable
+              :active-index="selectedGroupIndex"
+              @select="onDonutSelect"
+            />
             <ul class="legend">
-              <li v-for="g in stats.groupDistribution" :key="g.group">
+              <li
+                v-for="g in stats.groupDistribution"
+                :key="g.group"
+                class="legend__item"
+                :class="{ 'legend__item--active': selectedGroup === g.group }"
+                role="button"
+                tabindex="0"
+                :aria-pressed="selectedGroup === g.group"
+                @click="selectGroup(g.group)"
+                @keydown.enter.prevent="selectGroup(g.group)"
+                @keydown.space.prevent="selectGroup(g.group)"
+              >
                 <span class="legend__dot" :style="{ background: groupMeta(g.group).color }"></span>
                 <div class="legend__text">
                   <strong>{{ groupMeta(g.group).label }}</strong>
@@ -172,6 +213,46 @@ onMounted(load);
                 </span>
               </li>
             </ul>
+          </div>
+
+          <!-- Catalogo de acoes padrao do grupo selecionado -->
+          <div v-if="groupCatalog" class="catalog">
+            <div class="catalog__head">
+              <div>
+                <strong class="catalog__title">
+                  Todas as ações padrões por categoria —
+                  <span :style="{ color: groupMeta(selectedGroup).color }">{{ groupMeta(selectedGroup).label }}</span>
+                </strong>
+                <small class="muted catalog__note">
+                  Visão geral de todas as atividades possíveis para este grupo. Cada produtor recebe apenas
+                  o subconjunto correspondente aos seus cenários específicos.
+                </small>
+              </div>
+              <button type="button" class="catalog__close" aria-label="Fechar" @click="selectedGroup = null">×</button>
+            </div>
+
+            <div class="catalog__grid">
+              <div v-for="cat in groupCatalog.categories" :key="cat.key" class="catalog__cat">
+                <span class="catalog__cat-label">{{ cat.label }}</span>
+                <ul class="catalog__actions">
+                  <li v-for="(a, i) in cat.actions" :key="i">{{ a }}</li>
+                </ul>
+              </div>
+            </div>
+
+            <div v-if="groupCatalog.paeActions.length" class="catalog__extra">
+              <span class="catalog__cat-label catalog__cat-label--pae">Ações emergenciais (PAE)</span>
+              <ul class="catalog__actions">
+                <li v-for="(a, i) in groupCatalog.paeActions" :key="i">{{ a }}</li>
+              </ul>
+            </div>
+
+            <div v-if="groupCatalog.extraActions.length" class="catalog__extra">
+              <span class="catalog__cat-label catalog__cat-label--g1">Ações preventivas (G1)</span>
+              <ul class="catalog__actions">
+                <li v-for="(a, i) in groupCatalog.extraActions" :key="i">{{ a }}</li>
+              </ul>
+            </div>
           </div>
         </BaseCard>
 
@@ -230,10 +311,27 @@ onMounted(load);
   flex-direction: column;
   gap: 14px;
 }
-.legend li {
+.legend__item {
   display: flex;
   align-items: center;
   gap: 12px;
+  padding: 8px 10px;
+  margin: -8px -10px;
+  border-radius: 10px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.legend__item:hover {
+  background: var(--c-surface-2, rgba(148, 163, 184, 0.1));
+}
+.legend__item--active {
+  background: var(--c-surface-2, rgba(148, 163, 184, 0.12));
+  border-color: var(--c-border);
+}
+.legend__item:focus-visible {
+  outline: 2px solid var(--c-primary, #275f30);
+  outline-offset: 2px;
 }
 .legend__dot {
   width: 12px;
@@ -255,5 +353,93 @@ onMounted(load);
 .legend__val {
   font-weight: 700;
   font-size: 0.95rem;
+}
+
+/* Catalogo de acoes padrao por grupo */
+.catalog {
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid var(--c-border);
+}
+.catalog__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.catalog__title {
+  font-size: 0.98rem;
+  display: block;
+}
+.catalog__note {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  max-width: 60ch;
+}
+.catalog__close {
+  border: none;
+  background: transparent;
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--c-text-muted);
+  padding: 2px 8px;
+  border-radius: 8px;
+}
+.catalog__close:hover {
+  background: var(--c-surface-2, rgba(148, 163, 184, 0.12));
+  color: var(--c-text);
+}
+.catalog__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 14px;
+}
+.catalog__cat {
+  background: var(--c-surface-2, rgba(148, 163, 184, 0.08));
+  border: 1px solid var(--c-border);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+.catalog__cat-label {
+  font-weight: 700;
+  font-size: 0.86rem;
+  display: block;
+  margin-bottom: 8px;
+}
+.catalog__cat-label--pae {
+  color: #ef4444;
+}
+.catalog__cat-label--g1 {
+  color: #16a34a;
+}
+.catalog__actions {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.catalog__actions li {
+  position: relative;
+  padding-left: 18px;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: var(--c-text);
+}
+.catalog__actions li::before {
+  content: "✓";
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: var(--c-primary, #275f30);
+  font-weight: 700;
+}
+.catalog__extra {
+  margin-top: 14px;
 }
 </style>

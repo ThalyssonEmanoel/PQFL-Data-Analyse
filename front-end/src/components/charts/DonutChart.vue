@@ -9,7 +9,18 @@ const props = defineProps({
   thickness: { type: Number, default: 26 },
   centerLabel: { type: String, default: "" },
   centerValue: { type: [String, Number], default: "" },
+  // Quando true, os arcos ficam clicaveis e emitem "select" com o indice/segmento.
+  clickable: { type: Boolean, default: false },
+  // Indice do segmento atualmente selecionado (-1 = nenhum), para destaque visual.
+  activeIndex: { type: Number, default: -1 },
 });
+
+const emit = defineEmits(["select"]);
+
+function onSegmentClick(index) {
+  if (!props.clickable) return;
+  emit("select", { index, segment: props.segments[index] });
+}
 
 // Fracao minima de arco para que segmentos pequenos (ex.: G1 com 1%) continuem visiveis.
 const MIN_VISIBLE_FRACTION = 0.05;
@@ -62,12 +73,16 @@ const cx = computed(() => props.size / 2);
           :r="radius"
           fill="none"
           :stroke="arc.color"
-          :stroke-width="thickness"
+          :stroke-width="activeIndex === i ? thickness + 6 : thickness"
           :stroke-dasharray="arc.dashArray"
           :stroke-dashoffset="arc.dashOffset"
           stroke-linecap="butt"
           class="arc"
-        />
+          :class="{ 'arc--clickable': clickable, 'arc--dim': activeIndex >= 0 && activeIndex !== i }"
+          @click="onSegmentClick(i)"
+        >
+          <title v-if="clickable">{{ arc.label }}</title>
+        </circle>
       </g>
       <text v-if="centerValue !== ''" :x="cx" :y="cx - 2" text-anchor="middle" class="donut__value">{{ centerValue }}</text>
       <text v-if="centerLabel" :x="cx" :y="cx + 16" text-anchor="middle" class="donut__label">{{ centerLabel }}</text>
@@ -81,7 +96,13 @@ const cx = computed(() => props.size / 2);
   justify-content: center;
 }
 .arc {
-  transition: stroke-dasharray 0.6s ease, stroke-dashoffset 0.6s ease;
+  transition: stroke-dasharray 0.6s ease, stroke-dashoffset 0.6s ease, stroke-width 0.2s ease, opacity 0.2s ease;
+}
+.arc--clickable {
+  cursor: pointer;
+}
+.arc--dim {
+  opacity: 0.4;
 }
 .donut__value {
   font-size: 1.6rem;

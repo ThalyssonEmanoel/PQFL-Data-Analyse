@@ -9,6 +9,7 @@ import { formatNumber, formatScore, formatPercent, formatDateTime } from "@/util
 import BaseCard from "@/components/ui/BaseCard.vue";
 import BaseButton from "@/components/ui/BaseButton.vue";
 import BaseSpinner from "@/components/ui/BaseSpinner.vue";
+import BaseModal from "@/components/ui/BaseModal.vue";
 import EmptyState from "@/components/ui/EmptyState.vue";
 import GroupBadge from "@/components/ui/GroupBadge.vue";
 import ScoreGauge from "@/components/charts/ScoreGauge.vue";
@@ -94,6 +95,36 @@ const diagnostics = computed(() =>
     .slice()
     .sort((a, b) => a.conformity - b.conformity)
 );
+
+// Lookup key -> diagnostico (para abrir os campos de uma categoria no modal).
+const diagnosticByKey = computed(() => {
+  const map = {};
+  for (const d of actions.value.factorDiagnostics || []) map[d.key] = d;
+  return map;
+});
+
+// Categoria selecionada para detalhar os campos (modal).
+const selectedCategoryKey = ref(null);
+const categoryModalOpen = ref(false);
+
+const selectedDiagnostic = computed(() =>
+  selectedCategoryKey.value ? diagnosticByKey.value[selectedCategoryKey.value] || null : null
+);
+
+// Campos da categoria selecionada, conformes primeiro? Mantemos a ordem do checklist
+// e separamos contagem de conformes para o resumo do modal.
+const selectedFields = computed(() => selectedDiagnostic.value?.fields || []);
+const selectedConformingCount = computed(
+  () => selectedFields.value.filter((f) => f.conforming).length
+);
+
+function openCategory(key) {
+  // So abre se houver campos oficiais mapeados para a categoria.
+  const diag = diagnosticByKey.value[key];
+  if (!diag || !(diag.definedCount > 0)) return;
+  selectedCategoryKey.value = key;
+  categoryModalOpen.value = true;
+}
 </script>
 
 <template>
@@ -173,7 +204,7 @@ const diagnostics = computed(() =>
           <BarChart :items="categoryBars" :max="100" />
         </BaseCard>
 
-        <BaseCard title="Detalhamento da pontuação" subtitle="Contribuição de cada categoria (peso e pontos)">
+        <BaseCard title="Detalhamento da pontuação" subtitle="Clique em uma categoria para ver seus campos e o que está conforme">
           <div class="table-wrap">
             <table class="table">
               <thead>
@@ -186,8 +217,21 @@ const diagnostics = computed(() =>
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="c in categories" :key="c.key">
-                  <td><strong class="cat-name">{{ c.label }}</strong></td>
+                <tr
+                  v-for="c in categories"
+                  :key="c.key"
+                  class="row-click"
+                  role="button"
+                  tabindex="0"
+                  :title="`Ver campos de ${c.label}`"
+                  @click="openCategory(c.key)"
+                  @keydown.enter.prevent="openCategory(c.key)"
+                  @keydown.space.prevent="openCategory(c.key)"
+                >
+                  <td>
+                    <strong class="cat-name">{{ c.label }}</strong>
+                    <span class="cat-chevron" aria-hidden="true">›</span>
+                  </td>
                   <td class="mono muted">{{ c.weight }}</td>
                   <td class="mono">{{ formatPercent(c.rawScore) }}</td>
                   <td class="mono"><strong>{{ formatScore(c.weightedScore) }}</strong> / {{ c.weight }}</td>
@@ -257,6 +301,44 @@ const diagnostics = computed(() =>
           </div>
         </div>
       </BaseCard>
+
+      <!-- Modal: campos de uma categoria e sua conformidade -->
+      <BaseModal
+        v-model="categoryModalOpen"
+        :title="selectedDiagnostic?.label || 'Campos da categoria'"
+        :subtitle="selectedDiagnostic
+          ? `${selectedConformingCount} de ${selectedFields.length} item(ns) conforme(s) · ${formatPercent(selectedDiagnostic.conformity)} de conformidade`
+          : ''"
+      >
+        <template v-if="selectedFields.length">
+          <ul class="fields">
+            <li v-for="(f, i) in selectedFields" :key="i" class="fields__item" :class="{ 'fields__item--ok': f.conforming }">
+              <span class="fields__icon" :class="f.conforming ? 'fields__icon--ok' : 'fields__icon--bad'" aria-hidden="true">
+                {{ f.conforming ? "✓" : "✕" }}
+              </span>
+              <div class="fields__text">
+                <span class="fields__label">{{ f.label }}</span>
+                <span class="fields__tags">
+                  <span v-if="f.imprescindivel" class="tag tag--impr">Imprescindível</span>
+                  <span v-if="!f.found" class="tag tag--missing">Não encontrado no Coletum</span>
+                  <span class="tag" :class="f.conforming ? 'tag--ok' : 'tag--bad'">
+                    {{ f.conforming ? "Conforme" : "Não conforme" }}
+                  </span>
+                </span>
+              </div>
+            </li>
+          </ul>
+          <p class="fields__note muted">
+            Os itens acima são os campos oficiais (checklist MAPA) avaliados nesta categoria. A conformidade da
+            categoria é a proporção de itens conformes.
+          </p>
+        </template>
+        <EmptyState
+          v-else
+          title="Sem detalhamento de campos"
+          message="Este produtor foi calculado antes da atualização. Recalcule as pontuações (admin) para ver os campos por categoria."
+        />
+      </BaseModal>
     </template>
   </div>
 </template>
@@ -380,6 +462,109 @@ const diagnostics = computed(() =>
   color: var(--c-text);
   font-weight: 600;
   font-size: 0.86rem;
+}
+.row-click {
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.row-click:hover {
+  background: var(--c-surface-2, rgba(148, 163, 184, 0.1));
+}
+.row-click:focus-visible {
+  outline: 2px solid var(--c-primary, #275f30);
+  outline-offset: -2px;
+}
+.cat-chevron {
+  color: var(--c-text-muted);
+  font-weight: 700;
+  margin-left: 6px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.row-click:hover .cat-chevron,
+.row-click:focus-visible .cat-chevron {
+  opacity: 1;
+}
+/* Lista de campos no modal de categoria */
+.fields {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.fields__item {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  border: 1px solid var(--c-border);
+  border-radius: 12px;
+  background: rgba(239, 68, 68, 0.05);
+}
+.fields__item--ok {
+  background: rgba(22, 163, 74, 0.06);
+}
+.fields__icon {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: #fff;
+}
+.fields__icon--ok {
+  background: #16a34a;
+}
+.fields__icon--bad {
+  background: #ef4444;
+}
+.fields__text {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.fields__label {
+  font-size: 0.86rem;
+  line-height: 1.4;
+  color: var(--c-text);
+}
+.fields__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.tag {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+.tag--ok {
+  background: rgba(22, 163, 74, 0.12);
+  color: #16a34a;
+}
+.tag--bad {
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+}
+.tag--impr {
+  background: rgba(37, 95, 48, 0.12);
+  color: #275f30;
+}
+.tag--missing {
+  background: rgba(148, 163, 184, 0.18);
+  color: #475569;
+}
+.fields__note {
+  margin-top: 14px;
+  font-size: 0.78rem;
+  line-height: 1.4;
 }
 .table tfoot td {
   border-bottom: none;
